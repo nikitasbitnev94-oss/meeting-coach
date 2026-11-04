@@ -5,6 +5,7 @@ import { findFillers, normalize, tally } from '../audio/fillers';
 import { HesitationConfirmer, HesitationDetector, pitch } from '../audio/hesitation';
 import { rms } from '../audio/vad';
 import { LabelRecorder } from '../diag/labeling';
+import { spectrumExport } from '../diag/offline';
 import { clock } from '../report/summary';
 import { getConfig } from '../storage/db';
 import { appBase, attachVideo } from '../capture/video';
@@ -46,7 +47,8 @@ export function renderDiag(root: HTMLElement): void {
     <div id="msg" class="error"></div>
     <pre id="out" class="card">Нажмите кнопку, чтобы начать.</pre>
     <div id="speech"></div>
-    <div id="labeling"></div>`;
+    <div id="labeling"></div>
+    <div id="spectrum"></div>`;
   const msg = root.querySelector<HTMLElement>('#msg')!;
   const out = root.querySelector<HTMLElement>('#out')!;
   const camBtn = root.querySelector<HTMLButtonElement>('#cam')!;
@@ -133,6 +135,41 @@ export function renderDiag(root: HTMLElement): void {
 
   renderSpeechCheck(root.querySelector<HTMLElement>('#speech')!);
   renderLabeling(root.querySelector<HTMLElement>('#labeling')!);
+  renderSpectrum(root.querySelector<HTMLElement>('#spectrum')!);
+}
+
+/** Выгрузка спектра отрезков-кандидатов «э-э» для обучения. Файл обрабатывается без проигрывания. */
+function renderSpectrum(el: HTMLElement): void {
+  el.innerHTML = `
+    <h2>Спектр кандидатов «э-э»</h2>
+    <p class="muted">Выберите ту же запись, что размечали. Она обработается без проигрывания, обычно за 1–3 минуты.
+    В файл попадёт спектр только коротких отрезков-кандидатов (около 0,3 с каждый, это протяжные гласные без слов) и те же числа, что при разметке. Целиком звук и текст не сохраняются.</p>
+    <div class="row"><input type="file" id="sfile" accept="audio/*,video/*"><button id="sgo" class="primary" disabled>Выгрузить спектр кандидатов</button></div>
+    <div id="smsg2" class="error"></div>
+    <div id="sstate" class="card muted"></div>`;
+  const file = el.querySelector<HTMLInputElement>('#sfile')!;
+  const go = el.querySelector<HTMLButtonElement>('#sgo')!;
+  const msg = el.querySelector<HTMLElement>('#smsg2')!;
+  const state = el.querySelector<HTMLElement>('#sstate')!;
+  file.onchange = () => { go.disabled = !file.files?.length; };
+  go.onclick = async () => {
+    const f = file.files?.[0];
+    if (!f) return;
+    go.disabled = true;
+    msg.textContent = '';
+    try {
+      const out = await spectrumExport(f, await getConfig(), t => { state.textContent = t; });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([JSON.stringify(out)], { type: 'application/json' }));
+      a.download = `spektr-ee-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      state.textContent = `Готово: ${out.candidates.length} отрезков. Файл ${a.download} в загрузках — пришлите его в чат.`;
+    } catch (e) {
+      msg.textContent = errorText(e);
+    } finally {
+      go.disabled = false;
+    }
+  };
 }
 
 /**

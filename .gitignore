@@ -3,3 +3,5 @@ dist
 public/models
 public/mediapipe-wasm
 .superpowers/
+razmetka-ee-*.json
+spektr-ee-*.json
