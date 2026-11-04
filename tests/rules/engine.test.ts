@@ -156,3 +156,38 @@ test('снимок открытых событий не закрывает их'
   expect(e.update({ tMs: 4100, speaking: false, vision: V(), fillerHits: [] }).closed)
     .toEqual([{ type: 'frown', tMs: 0, durationMs: 4100 }]);
 });
+
+describe('«э-э» — подсказка о частоте', () => {
+  const hit = (e: RuleEngine, t: number, word = 'э-э') =>
+    e.update({ tMs: t, speaking: true, vision: V(), fillerHits: [{ word, tMs: t }] });
+  test('одно «э-э» не мигает', () => {
+    expect(hit(new RuleEngine(DEFAULT_CONFIG), 0).hint).toBeNull();
+  });
+  test('третье за минуту — подсказка с числом', () => {
+    const e = new RuleEngine(DEFAULT_CONFIG);
+    hit(e, 0); hit(e, 20000);
+    expect(hit(e, 40000).hint).toEqual({ id: 'hesitation', text: 'э-э: 3 за минуту, делай паузы' });
+  });
+  test('старше минуты не считаются', () => {
+    const e = new RuleEngine(DEFAULT_CONFIG);
+    hit(e, 0); hit(e, 20000);
+    expect(hit(e, 70000).hint).toBeNull();
+  });
+  test('не чаще раза в минуту', () => {
+    const e = new RuleEngine(DEFAULT_CONFIG);
+    hit(e, 0); hit(e, 1000); hit(e, 2000);
+    run(e, 2100, 9000, 100, { speaking: true });
+    expect(hit(e, 10000).hint).toBeNull();
+  });
+  test('«э-э» не участвует в «пауза вместо…»', () => {
+    const e = new RuleEngine(DEFAULT_CONFIG);
+    hit(e, 0); hit(e, 1000);
+    expect(hit(e, 2000, 'ну').hint).toEqual({ id: 'filler', text: 'ну' });
+  });
+  test('подсказку можно отключить', () => {
+    const cfg = structuredClone(DEFAULT_CONFIG); cfg.enabled.hesitation = false;
+    const e = new RuleEngine(cfg);
+    hit(e, 0); hit(e, 1000);
+    expect(hit(e, 2000).hint).toBeNull();
+  });
+});

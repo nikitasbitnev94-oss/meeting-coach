@@ -77,3 +77,15 @@ describe('подтверждение по словам', () => {
     expect((c as any).words.length).toBeLessThanOrEqual(150);
   });
 });
+
+import { HesitationPipeline } from '../../src/audio/hesitation';
+describe('конвейер: отрезок → тембр → слова', () => {
+  const sig = cat(sine(150, 400), silence(300));
+  const runPipe = (prob: number) => {
+    const p = new HesitationPipeline(DEFAULT_CONFIG, SR, () => prob);
+    frames(sig).forEach((f, i) => p.push(f, i * 20));
+    return p.onWords([{ word: 'да', start: 1.0, end: 1.2 }], 0);
+  };
+  test('тембр похож на «э» — подтверждается', () => expect(runPipe(0.9)).toEqual([{ start: 0, end: 400 }]));
+  test('тембр не похож — отбрасывается', () => expect(runPipe(0.1)).toEqual([]));
+});

@@ -1,6 +1,6 @@
 export type HintId = 'hands' | 'smirk' | 'irritation' | 'skepticism' | 'surprise'
-  | 'cheer' | 'frown' | 'expressive' | 'stone' | 'gaze' | 'filler' | 'fillerBurst';
-export type EventType = Exclude<HintId, 'fillerBurst'>; // 'filler' несёт word
+  | 'cheer' | 'frown' | 'expressive' | 'stone' | 'gaze' | 'hesitation' | 'filler' | 'fillerBurst';
+export type EventType = Exclude<HintId, 'fillerBurst' | 'hesitation'>; // 'filler' несёт word, «э-э» — word 'э-э'
 
 export interface Box { x: number; y: number; w: number; h: number } // нормированные 0..1
 export interface FaceFrame {

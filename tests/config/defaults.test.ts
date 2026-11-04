@@ -2,7 +2,7 @@ import { DEFAULT_CONFIG, HINT_PRIORITY } from '../../src/config/defaults';
 
 test('приоритеты: порядок из спеки, без повторов', () => {
   expect(HINT_PRIORITY).toEqual(['hands', 'smirk', 'irritation', 'skepticism', 'surprise',
-    'cheer', 'frown', 'expressive', 'stone', 'gaze', 'fillerBurst', 'filler']);
+    'cheer', 'frown', 'expressive', 'stone', 'gaze', 'hesitation', 'fillerBurst', 'filler']);
 });
 
 test('у каждой подсказки есть текст', () => {

@@ -4,6 +4,8 @@ import type { CoachEvent, FillerHit, Hint, HintId, VisionSignals } from '../type
 export interface EngineInput { tMs: number; speaking: boolean; vision: VisionSignals | null; fillerHits: FillerHit[] }
 export interface EngineOutput { hint: Hint | null; closed: CoachEvent[]; status: 'ok' | 'face-lost'; gazeShare: number | null }
 
+export const HESITATION_WORD = 'э-э';
+
 const RULES: RuleId[] = ['hands', 'smirk', 'irritation', 'skepticism', 'surprise', 'cheer', 'frown', 'expressive', 'stone', 'gaze'];
 const rank = (id: HintId) => HINT_PRIORITY.indexOf(id);
 
@@ -15,6 +17,7 @@ export class RuleEngine {
   private lastShown = new Map<HintId, number>();
   private flash: { hint: Hint; until: number } | null = null;
   private recentFillers: FillerHit[] = [];
+  private recentHesitations: number[] = [];
   private lostSince: number | null = null;
   private prevT: number | null = null;
   private speakingMs = 0;
@@ -64,6 +67,7 @@ export class RuleEngine {
     // паразиты
     for (const h of i.fillerHits) this.onFiller(h, t);
     while (this.recentFillers.length && this.recentFillers[0].tMs <= t - d.burstWindowMs) this.recentFillers.shift();
+    while (this.recentHesitations.length && this.recentHesitations[0] <= t - d.hesitationWindowMs) this.recentHesitations.shift();
     if (this.flash && t >= this.flash.until) this.flash = null;
 
     // выбор подсказки
@@ -133,8 +137,17 @@ export class RuleEngine {
   }
 
   private onFiller(h: FillerHit, t: number): void {
-    this.recentFillers.push(h);
     const d = this.cfg.display;
+    if (h.word === HESITATION_WORD) {
+      // Отдельные «э-э» ловятся с ошибками, частота — надёжно: подсказка только о частоте.
+      this.recentHesitations.push(h.tMs);
+      const n = this.recentHesitations.filter(x => x > t - d.hesitationWindowMs).length;
+      if (this.cfg.enabled.hesitation && n >= d.hesitationBurstCount && !this.inCooldown('hesitation', t)) {
+        this.flash = { hint: { id: 'hesitation', text: this.cfg.texts.hesitation.replace('{n}', String(n)) }, until: t + d.hesitationFlashMs };
+      }
+      return;
+    }
+    this.recentFillers.push(h);
     const inWindow = this.recentFillers.filter(x => x.tMs > t - d.burstWindowMs);
     if (this.cfg.enabled.fillerBurst && inWindow.length >= d.burstCount && !this.inCooldown('fillerBurst', t)) {
       const word = mostFrequent(inWindow.map(x => x.word));

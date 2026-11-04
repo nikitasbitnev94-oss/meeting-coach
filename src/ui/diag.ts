@@ -2,7 +2,7 @@ import { openFileSource, openLiveSource, SourceError, type MediaHandle } from '.
 import { startAudioTap } from '../audio/audioTap';
 import { createAsr } from '../audio/asr';
 import { findFillers, normalize, tally } from '../audio/fillers';
-import { HesitationConfirmer, HesitationDetector, pitch } from '../audio/hesitation';
+import { HesitationConfirmer, HesitationDetector, HesitationPipeline, pitch } from '../audio/hesitation';
 import { rms } from '../audio/vad';
 import { LabelRecorder } from '../diag/labeling';
 import { spectrumExport } from '../diag/offline';
@@ -303,21 +303,17 @@ function renderSpeechCheck(el: HTMLElement): void {
       src.pause(); // не терять начало записи, пока грузится модель
       const tap = await startAudioTap(src.audioStream);
       const asr = await createAsr(appBase() + 'models/vosk-ru.tar.gz', tap.sampleRate, cfg.asr);
-      const hes = new HesitationDetector(cfg, tap.sampleRate);
-      const conf = new HesitationConfirmer(cfg);
+      const hes = new HesitationPipeline(cfg, tap.sampleRate);
       let streamStart: number | null = null;
       const addHes = (segs: { start: number }[]) => segs.forEach(s => { found.push('э-э (по звуку)'); hesitations.push(s.start - t0); });
-      tap.onFrame((fr, t) => {
-        const seg = hes.push(fr, t);
-        if (seg) conf.add(seg);
-      });
+      tap.onFrame((fr, t) => hes.push(fr, t));
       tap.onBatch(b => {
         streamStart ??= performance.now() - b.duration * 1000;
         asr.accept(b);
       });
       asr.onPartial(t => { partial.textContent = t; });
       asr.onFinal(ws => {
-        addHes(conf.onWords(ws, streamStart ?? t0));
+        addHes(hes.onWords(ws, streamStart ?? t0));
         words += ws.length;
         found.push(...findFillers(ws.map(w => normalize(w.word)[0] ?? ''), cfg.fillers).map(h => h.word));
         draw(false);
@@ -326,7 +322,7 @@ function renderSpeechCheck(el: HTMLElement): void {
       src.resume();
       draw(false);
       src.onEnded(() => {
-        void asr.stop().then(() => { addHes(conf.flush()); tap.stop(); src.stop(); partial.textContent = ''; draw(true); go.disabled = false; });
+        void asr.stop().then(() => { addHes(hes.flush()); tap.stop(); src.stop(); partial.textContent = ''; draw(true); go.disabled = false; });
       });
     } catch (e) {
       smsg.textContent = errorText(e);

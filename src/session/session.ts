@@ -1,7 +1,7 @@
 import { createAsr, type Asr } from '../audio/asr';
 import { startAudioTap, type AudioTap } from '../audio/audioTap';
 import { FillerTracker } from '../audio/fillerTracker';
-import { HesitationConfirmer, HesitationDetector, type Segment } from '../audio/hesitation';
+import { HesitationPipeline, type Segment } from '../audio/hesitation';
 import { Vad } from '../audio/vad';
 import type { MediaHandle } from '../capture/source';
 import { appBase, attachVideo } from '../capture/video';
@@ -60,8 +60,7 @@ export async function startSession(o: SessionOptions): Promise<Session> {
   const window_ = new ExpressionWindow(config, baseline.activityNorm);
   const tracker = new FillerTracker(config.fillers);
   const vad = new Vad(config);
-  const hesitation = new HesitationDetector(config, tap.sampleRate);
-  const confirmer = new HesitationConfirmer(config);
+  const hesitation = new HesitationPipeline(config, tap.sampleRate);
   const events: CoachEvent[] = [];
   let pending: FillerHit[] = [];
   let speaking = false;
@@ -81,8 +80,7 @@ export async function startSession(o: SessionOptions): Promise<Session> {
   // звук: «говорит» сразу, распознавание — когда загрузится модель
   tap.onFrame((f, t) => {
     speaking = vad.push(f, t);
-    const seg = hesitation.push(f, t);
-    if (seg) confirmer.add(seg);
+    hesitation.push(f, t);
   });
 
   let asr: Asr | null = null;
@@ -103,7 +101,7 @@ export async function startSession(o: SessionOptions): Promise<Session> {
       a.onFinal(words => {
         const ev = tracker.onFinal(words, streamStart ?? t0);
         if (config.enabled.filler) events.push(...ev);
-        onHesitations(confirmer.onWords(words, streamStart ?? t0));
+        onHesitations(hesitation.onWords(words, streamStart ?? t0));
       });
     },
     e => { console.error(e); speech = 'failed'; },
@@ -178,7 +176,7 @@ export async function startSession(o: SessionOptions): Promise<Session> {
         // Если модель ещё грузится, не ждём: обработчик загрузки сам её закроет (stopping = true).
         await (asr as Asr | null)?.stop();
         // Без распознавания отличить «э-э» от гласной в слове нельзя — тогда оставшиеся отрезки не засчитываются.
-        if (speech === 'ok') onHesitations(confirmer.flush());
+        if (speech === 'ok') onHesitations(hesitation.flush());
         const tEnd = performance.now();
         events.push(...engine.finish(tEnd));
         face?.close(); hands?.close(); tap.stop(); o.source.stop();

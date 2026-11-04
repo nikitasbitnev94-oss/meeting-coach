@@ -1,6 +1,8 @@
 import type { Config } from '../config/defaults';
 import type { AsrWord } from '../types';
 import { isHesitationWord } from './fillers';
+import { hesitationProbability } from './hesitationModel';
+import { FrameRing, MEL_BANDS, MelFeatures } from './spectrum';
 import { rms } from './vad';
 
 const MIN_HZ = 75;
@@ -156,4 +158,38 @@ export class HesitationConfirmer {
     const best = parts.reduce<Segment | null>((b, p) => (!b || p.end - p.start > b.end - b.start ? p : b), null);
     return best && best.end - best.start >= minRunMs ? { start: Math.round(best.start), end: Math.round(best.end) } : null;
   }
+}
+
+/**
+ * Полный путь «э-э»: звонкий отрезок → тембр похож на «э» (вероятность ≥ minProb) → на него не легло слово.
+ * Спектр считается каждый кадр и хранится ~8 с, чтобы оценить отрезок, когда он закончился.
+ */
+export class HesitationPipeline {
+  private det: HesitationDetector;
+  private conf: HesitationConfirmer;
+  private mel: MelFeatures;
+  private ring = new FrameRing(400, MEL_BANDS);
+
+  constructor(
+    private cfg: Config,
+    private sampleRate: number,
+    private prob: (melFlat: number[], bands: number, durMs: number) => number = hesitationProbability,
+  ) {
+    this.det = new HesitationDetector(cfg, sampleRate);
+    this.conf = new HesitationConfirmer(cfg);
+    this.mel = new MelFeatures(sampleRate);
+  }
+
+  push(frame: Float32Array, tMs: number): void {
+    const r = rms(frame);
+    const p = r >= this.cfg.hesitation.minRms ? pitch(frame, this.sampleRate) : null;
+    this.ring.push(tMs, this.mel.frame(frame));
+    const seg = this.det.pushFeatures(r, p?.hz ?? 0, p?.corr ?? 0, tMs, (frame.length / this.sampleRate) * 1000);
+    if (seg && this.prob(this.ring.slice(seg.start, seg.end), MEL_BANDS, seg.end - seg.start) >= this.cfg.hesitation.minProb) {
+      this.conf.add(seg);
+    }
+  }
+
+  onWords(ws: AsrWord[], offsetMs: number): Segment[] { return this.conf.onWords(ws, offsetMs); }
+  flush(): Segment[] { return this.conf.flush(); }
 }
