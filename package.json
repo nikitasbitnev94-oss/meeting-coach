@@ -1,0 +1,24 @@
+{
+  "name": "speech-coach",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "test": "vitest run",
+    "assets": "bash scripts/fetch-assets.sh"
+  },
+  "dependencies": {
+    "@mediapipe/tasks-vision": "^1.2.2",
+    "idb": "^8.0.4",
+    "vosk-browser": "^0.0.8"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "^6.2.7",
+    "happy-dom": "^21.0.4",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.5",
+    "vitest": "^5.1.0"
+  }
+}

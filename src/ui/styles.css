@@ -1,0 +1,60 @@
+:root {
+  --bg: #ffffff;
+  --fg: #1d1d1f;
+  --muted: #6e6e73;
+  --line: #e3e3e6;
+  --accent: #1f6feb;
+  --warn: #c2410c;
+  --ok: #15803d;
+  --card: #f6f6f8;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161618;
+    --fg: #f2f2f4;
+    --muted: #a1a1a6;
+    --line: #2e2e32;
+    --accent: #5b9dff;
+    --warn: #fb923c;
+    --ok: #4ade80;
+    --card: #1f1f22;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+#app { max-width: 760px; margin: 0 auto; padding: 24px 16px 64px; }
+h1 { font-size: 26px; margin: 0 0 16px; }
+h2 { font-size: 18px; margin: 28px 0 8px; }
+a { color: var(--accent); }
+button {
+  font: inherit; padding: 8px 16px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--card); color: var(--fg); cursor: pointer;
+}
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button:disabled { opacity: .5; cursor: default; }
+input[type=text], input[type=number] {
+  font: inherit; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--bg); color: var(--fg);
+}
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+.muted { color: var(--muted); }
+.error { color: var(--warn); }
+.card { background: var(--card); border-radius: 12px; padding: 12px 16px; margin: 8px 0; }
+table { border-collapse: collapse; width: 100%; }
+td, th { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+nav.top { display: flex; gap: 16px; margin-bottom: 20px; font-size: 14px; }
+
+/* окно подсказок */
+.pip { padding: 10px 14px; display: flex; flex-direction: column; justify-content: center; height: 100vh; }
+.pip .hint { font-size: 30px; font-weight: 600; min-height: 40px; line-height: 1.2; }
+.pip .hint.empty { color: var(--muted); font-weight: 400; font-size: 18px; }
+.pip .counters { font-size: 13px; color: var(--muted); margin-top: 4px; }
+.pip .status { font-size: 13px; color: var(--warn); margin-top: 2px; }
+.pip .bar { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
+.pip .bar button { font-size: 12px; padding: 3px 10px; }
