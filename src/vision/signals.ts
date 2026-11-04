@@ -25,9 +25,6 @@ export function computeFrameSignals(f: FaceFrame, h: HandFrame, b: Baseline, cfg
   const c = cfg.face;
 
   const g = gazeAngles(f, cfg);
-  const zone = handZone(f.box, cfg);
-  const inZone = (p: { x: number; y: number }) =>
-    p.x >= zone.x && p.x <= zone.x + zone.w && p.y >= zone.y && p.y <= zone.y + zone.h;
 
   return {
     gazeOnCamera: Math.abs(g.yawDeg - b.gazeYawDeg) <= cfg.gaze.maxYawDeg
@@ -38,6 +35,22 @@ export function computeFrameSignals(f: FaceFrame, h: HandFrame, b: Baseline, cfg
     surprise: deltaOne('browInnerUp') >= c.surpriseBrowDelta && deltaOne('jawOpen') >= c.surpriseJawDelta,
     smirk: asym('mouthSmile') >= c.smirkAsym && Math.max(v('mouthSmileLeft'), v('mouthSmileRight')) >= c.smirkMinSmile,
     cheer: Math.min(v('mouthSmileLeft'), v('mouthSmileRight')) >= c.cheerSmile,
-    handNearFace: h.hands.some(hand => hand.some(inZone)),
+    handNearFace: handNear(h, f.box, cfg),
   };
+}
+
+/** Хотя бы одна точка руки в зоне вокруг лица. Рамку лица можно взять из последнего кадра, где лицо было видно. */
+export function handNear(h: HandFrame, box: Box, cfg: Config): boolean {
+  const z = handZone(box, cfg);
+  return h.hands.some(hand => hand.some(p => p.x >= z.x && p.x <= z.x + z.w && p.y >= z.y && p.y <= z.y + z.h));
+}
+
+/** Держит сигнал «рука у лица» holdMs после последнего срабатывания: детектор рук на мгновения теряет руку. */
+export class HandHold {
+  private last = -Infinity;
+  constructor(private cfg: Config) {}
+  update(raw: boolean, tMs: number): boolean {
+    if (raw) this.last = tMs;
+    return tMs - this.last <= this.cfg.hands.holdMs;
+  }
 }

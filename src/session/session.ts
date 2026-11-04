@@ -9,13 +9,13 @@ import { appBase, attachVideo } from '../capture/video';
 import type { Config } from '../config/defaults';
 import { RuleEngine } from '../rules/engine';
 import { saveBaseline, saveMeeting } from '../storage/db';
-import type { Baseline, CoachEvent, FillerHit, HandFrame, Meeting } from '../types';
+import type { Baseline, Box, CoachEvent, FillerHit, HandFrame, Hint, Meeting } from '../types';
 import type { PipWindow } from '../ui/pip';
 import { createFaceTracker, type FaceTracker } from '../vision/faceTracker';
 import { createHandTracker, type HandTracker } from '../vision/handTracker';
 import { everyMs, startAnalysisLoop, startIntervalLoop } from '../vision/loop';
 import { ACTIVITY_VERSION, effectiveActivityNorm } from '../vision/calibration';
-import { computeFrameSignals } from '../vision/signals';
+import { computeFrameSignals, HandHold, handNear } from '../vision/signals';
 import { ExpressionWindow } from '../vision/window';
 import { buildMeeting, freshHits, LastFiller, pickStatus, type SpeechState } from './meeting';
 
@@ -105,7 +105,12 @@ export async function startSession(o: SessionOptions): Promise<Session> {
         // Пользователь не говорил последние 1,5 с — это голос собеседника из колонок.
         if (now - own.lastOwn() > OWN_SPEECH_GRACE_MS) return;
         const hits = tracker.onPartial(text, now);
-        if (config.enabled.filler) pending.push(...hits);
+        if (config.enabled.filler && hits.length) {
+          pending.push(...hits);
+          // Слово — в окно сразу, не дожидаясь следующего кадра анализа.
+          hits.forEach(h => lastFiller.set(h.word, now));
+          render(now);
+        }
       });
       a.onFinal(words => {
         const off = streamStart ?? t0;
@@ -125,7 +130,12 @@ export async function startSession(o: SessionOptions): Promise<Session> {
   const faceDue = everyMs(100);
   const handDue = everyMs(200);
   let lastHands: HandFrame = { hands: [] };
+  const handHold = new HandHold(config);
+  let lastBox: Box | null = null;
+  let lastBoxT = -Infinity;
   const closedCbs: (() => void)[] = [];
+  let lastHint: Hint | null = null;
+  let lastStatus: 'ok' | 'face-lost' = 'ok';
 
   const tick = (t: number) => {
     if (!faceDue(t)) return;
@@ -136,17 +146,27 @@ export async function startSession(o: SessionOptions): Promise<Session> {
       : null;
     const hits = freshHits(pending, t, STALE_HIT_MS);
     pending = [];
-    hits.forEach(h => lastFiller.set(h.word, t));
+    hits.forEach(h => lastFiller.set(h.word, h.tMs));
     own.mouth(frame, t);
-    const out = engine.update({ tMs: t, speaking: own.update(speaking, t), vision, fillerHits: hits });
+    // Рука может закрыть лицо — тогда зона считается по последней рамке лица (до 3 с).
+    if (frame) { lastBox = frame.box; lastBoxT = t; }
+    const box = frame?.box ?? (t - lastBoxT <= config.hands.faceBoxMemoryMs ? lastBox : null);
+    const handsNow = handHold.update(box !== null && handNear(lastHands, box, config), t);
+    const out = engine.update({ tMs: t, speaking: own.update(speaking, t), vision, fillerHits: hits, hands: handsNow });
     events.push(...out.closed);
+    lastHint = out.hint;
+    lastStatus = out.status;
+    render(t);
+  };
+
+  function render(t: number): void {
     pip?.render({
-      hint: out.hint,
+      hint: lastHint,
       fillers: tracker.total(),
       lastFiller: lastFiller.get(t),
-      status: pickStatus(out.status, face !== null, speech),
+      status: pickStatus(lastStatus, face !== null, speech),
     });
-  };
+  }
 
   let stopLoop = startAnalysisLoop(pip.win, tick);
   const watchClose = (p: PipWindow) => p.onClose(() => {

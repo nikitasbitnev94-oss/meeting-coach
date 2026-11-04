@@ -52,11 +52,27 @@ describe('руки', () => {
     computeFrameSignals(face({}, { box }), { hands: [[p]] }, B, DEFAULT_CONFIG).handNearFace;
   test('зона лица с волосами, ушами и шеей', () => {
     const z = handZone(box, DEFAULT_CONFIG);
-    expect(z.x).toBeCloseTo(.36); expect(z.y).toBeCloseTo(.18);
-    expect(z.w).toBeCloseTo(.28); expect(z.h).toBeCloseTo(.57);
+    expect(z.x).toBeCloseTo(.34); expect(z.y).toBeCloseTo(.12);
+    expect(z.w).toBeCloseTo(.32); expect(z.h).toBeCloseTo(.63);
   });
   test('волосы', () => expect(hand({ x: .5, y: .2 })).toBe(true));
   test('шея', () => expect(hand({ x: .5, y: .7 })).toBe(true));
   test('сбоку далеко', () => expect(hand({ x: .9, y: .4 })).toBe(false));
   test('рук нет', () => expect(sig({}).handNearFace).toBe(false));
+});
+
+import { handNear, HandHold } from '../../src/vision/signals';
+describe('руки: устойчивость', () => {
+  test('кратковременная потеря руки не сбрасывает сигнал (держится 600 мс)', () => {
+    const h = new HandHold(DEFAULT_CONFIG);
+    expect(h.update(true, 0)).toBe(true);
+    expect(h.update(false, 400)).toBe(true);
+    expect(h.update(false, 700)).toBe(false);
+  });
+  test('handNear по рамке лица без самого кадра лица', () => {
+    const box = { x: .4, y: .3, w: .2, h: .3 };
+    expect(handNear({ hands: [[{ x: .5, y: .15 }]] }, box, DEFAULT_CONFIG)).toBe(true);   // макушка, 50% выше лба
+    expect(handNear({ hands: [[{ x: .65, y: .35 }]] }, box, DEFAULT_CONFIG)).toBe(true);  // волосы сбоку, 25% ширины
+    expect(handNear({ hands: [] }, box, DEFAULT_CONFIG)).toBe(false);
+  });
 });

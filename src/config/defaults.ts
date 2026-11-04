@@ -15,7 +15,7 @@ export const DEFAULT_CONFIG = {
   texts: {
     hands: 'руки от лица', smirk: 'усмешка', irritation: 'раздражение', skepticism: 'скепсис',
     surprise: 'удивление', cheer: 'улыбка', frown: 'расслабь брови', expressive: 'мимика спокойнее',
-    stone: 'кивни, отреагируй', gaze: 'в камеру', hesitation: 'э-э: {n} за минуту, делай паузы', filler: '{word}', fillerBurst: 'пауза вместо «{word}»',
+    stone: 'кивни, отреагируй', gaze: 'в камеру', hesitation: 'э-э: {n} за минуту, делай паузы', filler: '{word}', fillerBurst: '{count} за минуту — делай паузы',
   } as Record<HintId, string>,
   minDurationMs: {
     hands: 1000, smirk: 1500, irritation: 2000, skepticism: 2000, surprise: 1500,
@@ -34,7 +34,7 @@ export const DEFAULT_CONFIG = {
     stoneMs: 180000, reactionDelta: 0.15, reactionPitchDeg: 5, gapResetMs: 1000,
   },
   gaze: { maxYawDeg: 12, maxPitchDeg: 10, eyeYawRangeDeg: 30, eyePitchRangeDeg: 25, eyeYawSign: -1, eyePitchSign: -1 }, // знаки по замеру на ноутбуке пользователя 04.11.2026
-  hands: { zoneUp: 0.4, zoneSide: 0.2, zoneDown: 0.5 },
+  hands: { zoneUp: 0.6, zoneSide: 0.3, zoneDown: 0.5, holdMs: 600, faceBoxMemoryMs: 3000 },
   vad: { hangoverMs: 700, minRms: 0.01, noiseRatio: 3, mouthWindowMs: 700, mouthMoveDelta: 0.06 },
   // подобрано по разметке пользователя 04.11.2026: 10 мин, 47 отметок
   hesitation: { minRunMs: 240, minRms: 0.01, minCorr: 0.5, relRms: 0.5, maxPitchDrift: 0.2, wordMarginMs: 60, refWindowMs: 30000, minProb: 0.5 },

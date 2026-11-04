@@ -1,7 +1,11 @@
 import { HINT_PRIORITY, type Config, type RuleId } from '../config/defaults';
 import type { CoachEvent, FillerHit, Hint, HintId, VisionSignals } from '../types';
 
-export interface EngineInput { tMs: number; speaking: boolean; vision: VisionSignals | null; fillerHits: FillerHit[] }
+export interface EngineInput {
+  tMs: number; speaking: boolean; vision: VisionSignals | null; fillerHits: FillerHit[];
+  /** Рука у лица — отдельно от лица: рука может закрывать лицо, и тогда vision = null. */
+  hands?: boolean;
+}
 export interface EngineOutput { hint: Hint | null; closed: CoachEvent[]; status: 'ok' | 'face-lost'; gazeShare: number | null }
 
 export const HESITATION_WORD = 'э-э';
@@ -51,7 +55,9 @@ export class RuleEngine {
     const closed: CoachEvent[] = [];
     const fired = new Set<RuleId>();
     for (const id of RULES) {
-      const on = this.cfg.enabled[id] && v !== null && this.condition(id, v, i.speaking);
+      const on = this.cfg.enabled[id] && (id === 'hands'
+        ? (i.hands ?? v?.handNearFace ?? false)
+        : v !== null && this.condition(id, v, i.speaking));
       if (on) {
         if (!this.onset.has(id)) this.onset.set(id, t);
         if (t - this.onset.get(id)! >= this.cfg.minDurationMs[id]) {
@@ -149,11 +155,10 @@ export class RuleEngine {
     }
     this.recentFillers.push(h);
     const inWindow = this.recentFillers.filter(x => x.tMs > t - d.burstWindowMs);
+    // Само слово показывается строкой под подсказкой; главная подсказка — только о частоте.
     if (this.cfg.enabled.fillerBurst && inWindow.length >= d.burstCount && !this.inCooldown('fillerBurst', t)) {
-      const word = mostFrequent(inWindow.map(x => x.word));
-      this.flash = { hint: { id: 'fillerBurst', text: this.cfg.texts.fillerBurst.replace('{word}', word) }, until: t + d.fillerFlashMs };
-    } else if (this.cfg.enabled.filler) {
-      this.flash = { hint: { id: 'filler', text: this.cfg.texts.filler.replace('{word}', h.word) }, until: t + d.fillerFlashMs };
+      const text = this.cfg.texts.fillerBurst.replace('{count}', pluralFillers(inWindow.length));
+      this.flash = { hint: { id: 'fillerBurst', text }, until: t + d.fillerFlashMs };
     }
   }
 
@@ -173,13 +178,9 @@ export class RuleEngine {
   }
 }
 
-function mostFrequent(words: string[]): string {
-  const m = new Map<string, number>();
-  let best = words[0], bestN = 0;
-  for (const w of words) {
-    const n = (m.get(w) ?? 0) + 1;
-    m.set(w, n);
-    if (n > bestN) { best = w; bestN = n; }
-  }
-  return best;
+/** «1 паразит», «3 паразита», «5 паразитов». */
+export function pluralFillers(n: number): string {
+  const m10 = n % 10, m100 = n % 100;
+  const w = m10 === 1 && m100 !== 11 ? 'паразит' : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? 'паразита' : 'паразитов';
+  return `${n} ${w}`;
 }

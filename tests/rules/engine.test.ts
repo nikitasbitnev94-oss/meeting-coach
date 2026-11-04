@@ -98,24 +98,35 @@ test('лицо вернулось — статус ok', () => {
   run(e, 0, 6000, 100, { vision: null });
   expect(run(e, 6100, 6100, 100, { vision: V() }).status).toBe('ok');
 });
-test('вспышка паразита и «пауза вместо» на третьем за минуту', () => {
+test('отдельное слово не становится главной подсказкой — оно в строке под ней', () => {
+  const e = new RuleEngine(DEFAULT_CONFIG);
+  expect(e.update({ tMs: 0, speaking: true, vision: V(), fillerHits: [{ word: 'ну', tMs: 0 }] }).hint).toBeNull();
+});
+test('третий паразит за минуту — подсказка о частоте', () => {
   const e = new RuleEngine(DEFAULT_CONFIG);
   const hit = (t: number, w: string) => e.update({ tMs: t, speaking: true, vision: V(), fillerHits: [{ word: w, tMs: t }] });
-  expect(hit(0, 'ну').hint).toEqual({ id: 'filler', text: 'ну' });
-  hit(10000, 'ну');
-  expect(hit(20000, 'вот').hint).toEqual({ id: 'fillerBurst', text: 'пауза вместо «ну»' });
+  hit(0, 'ну'); hit(10000, 'ну');
+  expect(hit(20000, 'вот').hint).toEqual({ id: 'fillerBurst', text: '3 паразита за минуту — делай паузы' });
 });
-test('вспышка длится 2 с', () => {
+test('склонение: 5 паразитов, 21 паразит', () => {
+  const e = new RuleEngine({ ...DEFAULT_CONFIG, display: { ...DEFAULT_CONFIG.display, burstCount: 5 } });
+  const hits = (n: number) => Array.from({ length: n }, (_, i) => ({ word: 'ну', tMs: i }));
+  expect(e.update({ tMs: 100, speaking: true, vision: V(), fillerHits: hits(5) }).hint?.text).toBe('5 паразитов за минуту — делай паузы');
+  const e2 = new RuleEngine({ ...DEFAULT_CONFIG, display: { ...DEFAULT_CONFIG.display, burstCount: 21 } });
+  expect(e2.update({ tMs: 100, speaking: true, vision: V(), fillerHits: hits(21) }).hint?.text).toBe('21 паразит за минуту — делай паузы');
+});
+test('подсказка о частоте держится 2 с', () => {
   const e = new RuleEngine(DEFAULT_CONFIG);
-  e.update({ tMs: 0, speaking: true, vision: V(), fillerHits: [{ word: 'ну', tMs: 0 }] });
-  expect(run(e, 100, 1900, 100, { speaking: true }).hint?.id).toBe('filler');
-  expect(run(e, 2000, 2100, 100, { speaking: true }).hint).toBeNull();
+  e.update({ tMs: 0, speaking: true, vision: V(), fillerHits: [0, 1, 2].map(i => ({ word: 'ну', tMs: i })) });
+  expect(run(e, 100, 1900, 100, { speaking: true }).hint?.id).toBe('fillerBurst');
+  expect(run(e, 2100, 2200, 100, { speaking: true }).hint).toBeNull();
 });
-test('«пауза вместо» в паузе 60 с — обычная вспышка', () => {
+test('подсказка о частоте — не чаще раза в минуту', () => {
   const e = new RuleEngine(DEFAULT_CONFIG);
   const hit = (t: number) => e.update({ tMs: t, speaking: true, vision: V(), fillerHits: [{ word: 'ну', tMs: t }] });
   hit(0); hit(1000); expect(hit(2000).hint?.id).toBe('fillerBurst');
-  expect(hit(10000).hint).toEqual({ id: 'filler', text: 'ну' });
+  run(e, 2100, 9000, 100, { speaking: true });
+  expect(hit(10000).hint).toBeNull();
 });
 test('окно паразитов не растёт: попадания старше 60 с выбрасываются', () => {
   const e = new RuleEngine(DEFAULT_CONFIG);
@@ -182,7 +193,7 @@ describe('«э-э» — подсказка о частоте', () => {
   test('«э-э» не участвует в «пауза вместо…»', () => {
     const e = new RuleEngine(DEFAULT_CONFIG);
     hit(e, 0); hit(e, 1000);
-    expect(hit(e, 2000, 'ну').hint).toEqual({ id: 'filler', text: 'ну' });
+    expect(hit(e, 2000, 'ну').hint).toBeNull();   // один паразит, без «э-э» до трёх не дотягивает
   });
   test('подсказку можно отключить', () => {
     const cfg = structuredClone(DEFAULT_CONFIG); cfg.enabled.hesitation = false;
@@ -190,4 +201,13 @@ describe('«э-э» — подсказка о частоте', () => {
     hit(e, 0); hit(e, 1000);
     expect(hit(e, 2000).hint).toBeNull();
   });
+});
+
+test('руки у лица работают, даже когда лицо закрыто рукой', () => {
+  const e = new RuleEngine(DEFAULT_CONFIG);
+  expect(run(e, 0, 1000, 100, { vision: null, hands: true }).hint?.id).toBe('hands');
+});
+test('отдельный сигнал рук важнее поля в vision', () => {
+  const e = new RuleEngine(DEFAULT_CONFIG);
+  expect(run(e, 0, 1000, 100, { vision: V({ handNearFace: false }), hands: true }).hint?.id).toBe('hands');
 });

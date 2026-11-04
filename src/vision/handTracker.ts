@@ -12,6 +12,10 @@ async function create(base: string, delegate: 'GPU' | 'CPU'): Promise<HandLandma
     baseOptions: { modelAssetPath: base + 'models/hand_landmarker.task', delegate },
     runningMode: 'VIDEO',
     numHands: 2,
+    // Рука на фоне волос и лица распознаётся с меньшей уверенностью; 0,5 по умолчанию её теряет.
+    minHandDetectionConfidence: 0.3,
+    minHandPresenceConfidence: 0.3,
+    minTrackingConfidence: 0.3,
   });
 }
 
