@@ -1,4 +1,7 @@
-import { openLiveSource, SourceError, type MediaHandle } from '../capture/source';
+import { openFileSource, openLiveSource, SourceError, type MediaHandle } from '../capture/source';
+import { startAudioTap } from '../audio/audioTap';
+import { createAsr } from '../audio/asr';
+import { findFillers, normalize, tally } from '../audio/fillers';
 import { appBase, attachVideo } from '../capture/video';
 import { DEFAULT_CONFIG } from '../config/defaults';
 import type { FaceFrame, HandFrame } from '../types';
@@ -119,4 +122,58 @@ export function renderDiag(root: HTMLElement): void {
     }
   };
   stopBtn.onclick = stop;
+
+  renderSpeechCheck(root.querySelector<HTMLElement>('#speech')!);
+}
+
+/** Замер распознавания: файл с речью → таблица паразитов. Текст показывается и не сохраняется. */
+function renderSpeechCheck(el: HTMLElement): void {
+  el.innerHTML = `
+    <h2>Распознавание речи</h2>
+    <p class="muted">Выберите запись своей речи (аудио или видео). Посчитайте паразиты вручную и сравните с таблицей.</p>
+    <div class="row"><input type="file" id="file" accept="audio/*,video/*"><button id="go" class="primary" disabled>Распознать</button></div>
+    <div id="smsg" class="error"></div>
+    <div id="partial" class="card muted"></div>
+    <div id="table"></div>`;
+  const file = el.querySelector<HTMLInputElement>('#file')!;
+  const go = el.querySelector<HTMLButtonElement>('#go')!;
+  const smsg = el.querySelector<HTMLElement>('#smsg')!;
+  const partial = el.querySelector<HTMLElement>('#partial')!;
+  const table = el.querySelector<HTMLElement>('#table')!;
+  file.onchange = () => { go.disabled = !file.files?.length; };
+
+  go.onclick = async () => {
+    const f = file.files?.[0];
+    if (!f) return;
+    go.disabled = true;
+    smsg.textContent = '';
+    partial.textContent = 'Загружаю модель распознавания (около 45 МБ, один раз)…';
+    const found: string[] = [];
+    let words = 0;
+    const draw = (done: boolean) => {
+      const rows = tally(found).map(r => `<tr><td>${r.word}</td><td>${r.count}</td></tr>`).join('');
+      table.innerHTML = `<table><tr><th>Слово</th><th>Найдено</th></tr>${rows}
+        <tr><td><b>Всего паразитов</b></td><td><b>${found.length}</b></td></tr></table>
+        <p class="muted">Распознано слов: ${words}. ${done ? 'Готово.' : 'Идёт распознавание…'}</p>`;
+    };
+    try {
+      const src = await openFileSource(f);
+      const tap = await startAudioTap(src.audioStream);
+      const asr = await createAsr(appBase() + 'models/vosk-ru.tar.gz', tap.sampleRate);
+      tap.onBatch(b => asr.accept(b));
+      asr.onPartial(t => { partial.textContent = t; });
+      asr.onFinal(ws => {
+        words += ws.length;
+        found.push(...findFillers(ws.map(w => normalize(w.word)[0] ?? ''), DEFAULT_CONFIG.fillers).map(h => h.word));
+        draw(false);
+      });
+      draw(false);
+      src.onEnded(() => {
+        setTimeout(() => { tap.stop(); asr.stop(); src.stop(); partial.textContent = ''; draw(true); go.disabled = false; }, 1500);
+      });
+    } catch (e) {
+      smsg.textContent = errorText(e);
+      go.disabled = false;
+    }
+  };
 }
