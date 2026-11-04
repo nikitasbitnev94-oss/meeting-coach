@@ -1,6 +1,7 @@
 import './ui/styles.css';
 import { route, startRouter } from './ui/router';
 import { renderDiag } from './ui/diag';
+import { renderHistory, renderReport } from './ui/report';
 
 function stub(title: string) {
   return (root: HTMLElement) => {
@@ -12,8 +13,8 @@ function stub(title: string) {
 
 route('/', stub('Суфлёр'));
 route('/calibrate', stub('Калибровка'));
-route('/report/:id', stub('Отчёт'));
-route('/history', stub('История встреч'));
+route('/report/:id', renderReport);
+route('/history', renderHistory);
 route('/settings', stub('Настройки'));
 route('/diag', renderDiag);
 
