@@ -35,7 +35,8 @@ export const DEFAULT_CONFIG = {
   gaze: { maxYawDeg: 12, maxPitchDeg: 10, eyeYawRangeDeg: 30, eyePitchRangeDeg: 25, eyeYawSign: -1, eyePitchSign: -1 }, // знаки по замеру на ноутбуке пользователя 04.11.2026
   hands: { zoneUp: 0.4, zoneSide: 0.2, zoneDown: 0.5 },
   vad: { hangoverMs: 700, minRms: 0.01, noiseRatio: 3 },
-  hesitation: { minRunMs: 400, minRms: 0.02, maxPitchDrift: 0.1, minCorr: 0.5 },
+  // подобрано по разметке пользователя 04.11.2026: 10 мин, 47 отметок
+  hesitation: { minRunMs: 240, minRms: 0.01, minCorr: 0.5, relRms: 0.5, maxPitchDrift: 0.2, wordMarginMs: 60, refWindowMs: 30000 },
   asr: { loadTimeoutMs: 180000, flushTimeoutMs: 1500 },
   calibration: { fullMs: 20000, gazeMs: 5000, minFaceShare: 0.7, maxGazeStdDeg: 4, maxAbsDeg: 25 },
 };

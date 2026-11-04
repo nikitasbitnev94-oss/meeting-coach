@@ -1,11 +1,10 @@
-import { findFillers, normalize } from '../audio/fillers';
+import { findFillers, isHesitationWord, normalize } from '../audio/fillers';
 import type { AsrWord } from '../types';
 
 /** 0 — обычное слово, 1 — слово из списка паразитов, 2 — похоже на «э-э»/«м-м». Сам текст в файл не попадает. */
 export function wordFlag(word: string, fillers: string[]): 0 | 1 | 2 {
-  const t = normalize(word).join(' ');
-  if (/^[эмаы]+$/.test(t) || t === 'эм' || t === 'хм') return 2;
-  if (findFillers([t], fillers).length) return 1;
+  if (isHesitationWord(word)) return 2;
+  if (findFillers([normalize(word).join(' ')], fillers).length) return 1;
   return 0;
 }
 

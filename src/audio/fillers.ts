@@ -34,3 +34,9 @@ export function tally(words: string[]): { word: string; count: number }[] {
   for (const w of words) m.set(w, (m.get(w) ?? 0) + 1);
   return [...m].map(([word, count]) => ({ word, count })).sort((a, b) => b.count - a.count);
 }
+
+/** Слово, которым распознаватель записал «э-э»/«м-м» (э, ээ, эм, мм, а, ы…): для детектора это не слово. */
+export function isHesitationWord(word: string): boolean {
+  const t = normalize(word).join(' ');
+  return /^[эмаы]+$/.test(t) || t === 'хм';
+}

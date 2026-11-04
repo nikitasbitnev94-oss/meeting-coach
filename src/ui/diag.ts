@@ -2,7 +2,7 @@ import { openFileSource, openLiveSource, SourceError, type MediaHandle } from '.
 import { startAudioTap } from '../audio/audioTap';
 import { createAsr } from '../audio/asr';
 import { findFillers, normalize, tally } from '../audio/fillers';
-import { HesitationDetector, pitch } from '../audio/hesitation';
+import { HesitationConfirmer, HesitationDetector, pitch } from '../audio/hesitation';
 import { rms } from '../audio/vad';
 import { LabelRecorder } from '../diag/labeling';
 import { clock } from '../report/summary';
@@ -168,19 +168,24 @@ function renderLabeling(el: HTMLElement): void {
       const asr = await createAsr(appBase() + 'models/vosk-ru.tar.gz', tap.sampleRate, cfg.asr);
       const rec = new LabelRecorder(cfg.fillers, tap.sampleRate);
       const hes = new HesitationDetector(cfg, tap.sampleRate);
+      const conf = new HesitationConfirmer(cfg);
       let t0 = 0;
       let streamStart: number | null = null;
       tap.onFrame((fr, t) => {
-        const p = pitch(fr, tap.sampleRate);
-        rec.frame(rms(fr), p?.hz ?? 0, p?.corr ?? 0);
-        const h = hes.push(fr, t);
-        if (h !== null) rec.detected(h - t0);
+        const r = rms(fr);
+        const p = r >= cfg.hesitation.minRms ? pitch(fr, tap.sampleRate) : null;
+        rec.frame(r, p?.hz ?? 0, p?.corr ?? 0);
+        const seg = hes.pushFeatures(r, p?.hz ?? 0, p?.corr ?? 0, t, 20);
+        if (seg) conf.add(seg);
       });
       tap.onBatch(b => {
         streamStart ??= performance.now() - b.duration * 1000;
         asr.accept(b);
       });
-      asr.onFinal(ws => rec.words(ws, (streamStart ?? t0) - t0));
+      asr.onFinal(ws => {
+        rec.words(ws, (streamStart ?? t0) - t0);
+        conf.onWords(ws, streamStart ?? t0).forEach(s => rec.detected(s.start - t0));
+      });
       const onKey = (e: KeyboardEvent) => {
         if (e.code !== 'Space') return;
         e.preventDefault();
@@ -196,6 +201,7 @@ function renderLabeling(el: HTMLElement): void {
         const duration = performance.now() - t0;
         src.pause();
         await asr.stop();
+        conf.flush().forEach(s => rec.detected(s.start - t0));
         tap.stop(); src.stop();
         const blob = new Blob([JSON.stringify(rec.export(duration))], { type: 'application/json' });
         const a = document.createElement('a');
@@ -261,13 +267,20 @@ function renderSpeechCheck(el: HTMLElement): void {
       const tap = await startAudioTap(src.audioStream);
       const asr = await createAsr(appBase() + 'models/vosk-ru.tar.gz', tap.sampleRate, cfg.asr);
       const hes = new HesitationDetector(cfg, tap.sampleRate);
+      const conf = new HesitationConfirmer(cfg);
+      let streamStart: number | null = null;
+      const addHes = (segs: { start: number }[]) => segs.forEach(s => { found.push('э-э (по звуку)'); hesitations.push(s.start - t0); });
       tap.onFrame((fr, t) => {
-        const h = hes.push(fr, t);
-        if (h !== null) { found.push('э-э (по звуку)'); hesitations.push(h - t0); draw(false); }
+        const seg = hes.push(fr, t);
+        if (seg) conf.add(seg);
       });
-      tap.onBatch(b => asr.accept(b));
+      tap.onBatch(b => {
+        streamStart ??= performance.now() - b.duration * 1000;
+        asr.accept(b);
+      });
       asr.onPartial(t => { partial.textContent = t; });
       asr.onFinal(ws => {
+        addHes(conf.onWords(ws, streamStart ?? t0));
         words += ws.length;
         found.push(...findFillers(ws.map(w => normalize(w.word)[0] ?? ''), cfg.fillers).map(h => h.word));
         draw(false);
@@ -276,7 +289,7 @@ function renderSpeechCheck(el: HTMLElement): void {
       src.resume();
       draw(false);
       src.onEnded(() => {
-        void asr.stop().then(() => { tap.stop(); src.stop(); partial.textContent = ''; draw(true); go.disabled = false; });
+        void asr.stop().then(() => { addHes(conf.flush()); tap.stop(); src.stop(); partial.textContent = ''; draw(true); go.disabled = false; });
       });
     } catch (e) {
       smsg.textContent = errorText(e);

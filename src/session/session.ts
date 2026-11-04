@@ -1,7 +1,7 @@
 import { createAsr, type Asr } from '../audio/asr';
 import { startAudioTap, type AudioTap } from '../audio/audioTap';
 import { FillerTracker } from '../audio/fillerTracker';
-import { HesitationDetector } from '../audio/hesitation';
+import { HesitationConfirmer, HesitationDetector, type Segment } from '../audio/hesitation';
 import { Vad } from '../audio/vad';
 import type { MediaHandle } from '../capture/source';
 import { appBase, attachVideo } from '../capture/video';
@@ -61,21 +61,28 @@ export async function startSession(o: SessionOptions): Promise<Session> {
   const tracker = new FillerTracker(config.fillers);
   const vad = new Vad(config);
   const hesitation = new HesitationDetector(config, tap.sampleRate);
+  const confirmer = new HesitationConfirmer(config);
   const events: CoachEvent[] = [];
   let pending: FillerHit[] = [];
   let speaking = false;
   let streamStart: number | null = null;
   let stopping = false;
 
-  // звук: «говорит» и «э-э» сразу, распознавание — когда загрузится модель
+  // «э-э»: отрезок без слова. Подтверждается, когда распознаватель выдал слова дальше него (в конце фразы).
+  const onHesitations = (segs: Segment[]) => {
+    if (!config.enabled.filler) return;
+    for (const s of segs) {
+      const { hit, event } = tracker.addHesitation(s.start);
+      events.push({ ...event, durationMs: s.end - s.start });
+      pending.push({ ...hit, tMs: performance.now() }); // вспышка — сейчас, в отчёте — время самого «э-э»
+    }
+  };
+
+  // звук: «говорит» сразу, распознавание — когда загрузится модель
   tap.onFrame((f, t) => {
     speaking = vad.push(f, t);
-    const h = hesitation.push(f, t);
-    if (h !== null && config.enabled.filler) {
-      const { hit, event } = tracker.addHesitation(h);
-      pending.push(hit);
-      events.push(event);
-    }
+    const seg = hesitation.push(f, t);
+    if (seg) confirmer.add(seg);
   });
 
   let asr: Asr | null = null;
@@ -96,6 +103,7 @@ export async function startSession(o: SessionOptions): Promise<Session> {
       a.onFinal(words => {
         const ev = tracker.onFinal(words, streamStart ?? t0);
         if (config.enabled.filler) events.push(...ev);
+        onHesitations(confirmer.onWords(words, streamStart ?? t0));
       });
     },
     e => { console.error(e); speech = 'failed'; },
@@ -169,6 +177,8 @@ export async function startSession(o: SessionOptions): Promise<Session> {
         // Сначала дослушать последнюю фразу, потом закрывать звук.
         // Если модель ещё грузится, не ждём: обработчик загрузки сам её закроет (stopping = true).
         await (asr as Asr | null)?.stop();
+        // Без распознавания отличить «э-э» от гласной в слове нельзя — тогда оставшиеся отрезки не засчитываются.
+        if (speech === 'ok') onHesitations(confirmer.flush());
         const tEnd = performance.now();
         events.push(...engine.finish(tEnd));
         face?.close(); hands?.close(); tap.stop(); o.source.stop();
