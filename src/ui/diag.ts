@@ -7,8 +7,9 @@ import { rms } from '../audio/vad';
 import { OwnSpeech } from '../audio/ownSpeech';
 import { LabelRecorder } from '../diag/labeling';
 import { spectrumExport } from '../diag/offline';
+import { EXPRESSION_STEPS, ExpressionRecorder } from '../diag/expressions';
 import { clock } from '../report/summary';
-import { getConfig } from '../storage/db';
+import { getBaseline, getConfig } from '../storage/db';
 import { appBase, attachVideo } from '../capture/video';
 import { DEFAULT_CONFIG } from '../config/defaults';
 import type { FaceFrame, HandFrame } from '../types';
@@ -49,7 +50,8 @@ export function renderDiag(root: HTMLElement): void {
     <pre id="out" class="card">Нажмите кнопку, чтобы начать.</pre>
     <div id="speech"></div>
     <div id="labeling"></div>
-    <div id="spectrum"></div>`;
+    <div id="spectrum"></div>
+    <div id="mimic"></div>`;
   const msg = root.querySelector<HTMLElement>('#msg')!;
   const out = root.querySelector<HTMLElement>('#out')!;
   const camBtn = root.querySelector<HTMLButtonElement>('#cam')!;
@@ -140,6 +142,81 @@ export function renderDiag(root: HTMLElement): void {
   renderSpeechCheck(root.querySelector<HTMLElement>('#speech')!);
   renderLabeling(root.querySelector<HTMLElement>('#labeling')!);
   renderSpectrum(root.querySelector<HTMLElement>('#spectrum')!);
+  renderMimic(root.querySelector<HTMLElement>('#mimic')!);
+}
+
+/** Запись мимики по шагам: числа параметров лица и сработавшие сигналы. Для подбора порогов под пользователя. */
+function renderMimic(el: HTMLElement): void {
+  el.innerHTML = `
+    <h2>Запись мимики</h2>
+    <p class="muted">Страница по очереди попросит показать 10 выражений, около 50 секунд. Сначала пройдите калибровку на главной странице.
+    В файл попадают только числа параметров лица (брови, уголки рта и т. п.), изображения нет.</p>
+    <div class="row"><button id="mgo" class="primary">Начать запись мимики</button></div>
+    <div id="mmsg" class="error"></div>
+    <div id="mstep" style="font-size:24px;font-weight:600;min-height:32px"></div>
+    <div id="mleft" class="muted"></div>
+    <div id="mfired" class="card muted">Сработавшие сигналы появятся здесь.</div>
+    <video id="mvideo" muted playsinline autoplay style="width:240px;border-radius:8px;transform:scaleX(-1)"></video>`;
+  const go = el.querySelector<HTMLButtonElement>('#mgo')!;
+  const msg = el.querySelector<HTMLElement>('#mmsg')!;
+  const stepEl = el.querySelector<HTMLElement>('#mstep')!;
+  const left = el.querySelector<HTMLElement>('#mleft')!;
+  const firedEl = el.querySelector<HTMLElement>('#mfired')!;
+  const video = el.querySelector<HTMLVideoElement>('#mvideo')!;
+
+  go.onclick = async () => {
+    go.disabled = true;
+    msg.textContent = '';
+    let source: MediaHandle | null = null;
+    let face: FaceTracker | null = null;
+    try {
+      const [cfg, baseline] = await Promise.all([getConfig(), getBaseline()]);
+      if (!baseline) throw new Error('Сначала пройдите калибровку на главной странице.');
+      source = await openLiveSource();
+      video.srcObject = source.videoStream;
+      await video.play().catch(() => {});
+      stepEl.textContent = 'Загружаю модель лица…';
+      face = await createFaceTracker(appBase());
+      const rec = new ExpressionRecorder();
+      const due = everyMs(100);
+      const noHands: HandFrame = { hands: [] };
+      for (const step of EXPRESSION_STEPS) {
+        stepEl.textContent = step.text;
+        // 1,5 с на то, чтобы принять выражение — не записываются
+        await new Promise(r => setTimeout(r, 1500));
+        const end = performance.now() + step.ms;
+        await new Promise<void>(resolve => {
+          const loop = () => {
+            const t = performance.now();
+            if (t >= end) { resolve(); return; }
+            if (due(t)) {
+              const f = face!.detect(video, t);
+              const sig = f ? computeFrameSignals(f, noHands, baseline, cfg) : null;
+              const fired = sig ? Object.entries(sig).filter(([k, v]) => v === true && k !== 'gazeOnCamera').map(([k]) => k) : [];
+              rec.frame(step.id, t, f?.blendshapes ?? null, fired);
+              firedEl.textContent = f ? (fired.length ? `Сработало: ${fired.join(', ')}` : 'Ничего не сработало') : 'Лица не видно';
+              left.textContent = `${Math.ceil((end - t) / 1000)} с`;
+            }
+            requestAnimationFrame(loop);
+          };
+          requestAnimationFrame(loop);
+        });
+      }
+      stepEl.textContent = 'Готово';
+      left.textContent = '';
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([JSON.stringify(rec.export())], { type: 'application/json' }));
+      a.download = `mimika-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      firedEl.textContent = `Файл ${a.download} в загрузках — пришлите его в чат.`;
+    } catch (e) {
+      msg.textContent = errorText(e);
+    } finally {
+      face?.close();
+      source?.stop();
+      go.disabled = false;
+    }
+  };
 }
 
 /** Выгрузка спектра отрезков-кандидатов «э-э» для обучения. Файл обрабатывается без проигрывания. */

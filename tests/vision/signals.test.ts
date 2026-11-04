@@ -53,10 +53,11 @@ describe('руки', () => {
   test('зона лица с волосами, ушами и шеей', () => {
     const z = handZone(box, DEFAULT_CONFIG);
     expect(z.x).toBeCloseTo(.34); expect(z.y).toBeCloseTo(.12);
-    expect(z.w).toBeCloseTo(.32); expect(z.h).toBeCloseTo(.63);
+    expect(z.w).toBeCloseTo(.32); expect(z.h).toBeCloseTo(.675);
   });
   test('волосы', () => expect(hand({ x: .5, y: .2 })).toBe(true));
   test('шея', () => expect(hand({ x: .5, y: .7 })).toBe(true));
+  test('низ шеи — 60% высоты лица под подбородком', () => expect(hand({ x: .5, y: .78 })).toBe(true));
   test('сбоку далеко', () => expect(hand({ x: .9, y: .4 })).toBe(false));
   test('рук нет', () => expect(sig({}).handNearFace).toBe(false));
 });

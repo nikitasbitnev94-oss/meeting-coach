@@ -34,7 +34,7 @@ export const DEFAULT_CONFIG = {
     stoneMs: 180000, reactionDelta: 0.15, reactionPitchDeg: 5, gapResetMs: 1000,
   },
   gaze: { maxYawDeg: 12, maxPitchDeg: 10, eyeYawRangeDeg: 30, eyePitchRangeDeg: 25, eyeYawSign: -1, eyePitchSign: -1 }, // знаки по замеру на ноутбуке пользователя 04.11.2026
-  hands: { zoneUp: 0.6, zoneSide: 0.3, zoneDown: 0.5, holdMs: 600, faceBoxMemoryMs: 3000 },
+  hands: { zoneUp: 0.6, zoneSide: 0.3, zoneDown: 0.65, holdMs: 600, faceBoxMemoryMs: 3000 },
   vad: { hangoverMs: 700, minRms: 0.01, noiseRatio: 3, mouthWindowMs: 1000, mouthMoveDelta: 0.04 },
   // подобрано по разметке пользователя 04.11.2026: 10 мин, 47 отметок
   hesitation: { minRunMs: 240, minRms: 0.01, minCorr: 0.5, relRms: 0.5, maxPitchDrift: 0.2, wordMarginMs: 60, refWindowMs: 30000, minProb: 0.5 },

@@ -38,9 +38,12 @@ test('усмешка только пока пользователь молчит
   expect(run(new RuleEngine(DEFAULT_CONFIG), 0, 2000, 100, { speaking: true, vision: V({ smirk: true }) }).hint).toBeNull();
   expect(run(new RuleEngine(DEFAULT_CONFIG), 0, 1500, 100, { speaking: false, vision: V({ smirk: true }) }).hint?.id).toBe('smirk');
 });
-test('весёлость 3 с, пока пользователь молчит', () => {
+test('весёлость 3 с', () => {
   expect(run(new RuleEngine(DEFAULT_CONFIG), 0, 2900, 100, { vision: V({ cheer: true }) }).hint).toBeNull();
   expect(run(new RuleEngine(DEFAULT_CONFIG), 0, 3000, 100, { vision: V({ cheer: true }) }).hint?.id).toBe('cheer');
+});
+test('весёлость срабатывает и при звуке: смех суфлёр слышит как речь', () => {
+  expect(run(new RuleEngine(DEFAULT_CONFIG), 0, 3000, 100, { speaking: true, vision: V({ cheer: true }) }).hint?.id).toBe('cheer');
 });
 test('взгляд только пока пользователь говорит', () => {
   expect(run(new RuleEngine(DEFAULT_CONFIG), 0, 4000, 100, { speaking: false, vision: V({ gazeOnCamera: false }) }).hint).toBeNull();

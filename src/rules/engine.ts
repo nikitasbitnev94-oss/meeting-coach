@@ -127,7 +127,7 @@ export class RuleEngine {
       case 'irritation': return v.irritation;
       case 'skepticism': return v.skepticism;
       case 'surprise': return v.surprise;
-      case 'cheer': return v.cheer && !speaking;
+      case 'cheer': return v.cheer; // смех звучит и двигает рот — суфлёр принял бы его за речь
       case 'frown': return v.frown;
       case 'expressive': return v.expressivityRatio >= f.expressiveRatio;
       case 'stone': return v.stillMs >= f.stoneMs && !speaking;
