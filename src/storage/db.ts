@@ -1,5 +1,6 @@
 import { openDB, type IDBPDatabase } from 'idb';
 import { DEFAULT_CONFIG, type Config } from '../config/defaults';
+import { validateConfig } from '../config/validate';
 import type { Baseline, Meeting } from '../types';
 
 let dbp: Promise<IDBPDatabase> | null = null;
@@ -28,8 +29,10 @@ export async function listMeetings(): Promise<Meeting[]> {
   return all.sort((a, b) => b.startedAt.localeCompare(a.startedAt));
 }
 
+/** Сохранённые настройки, дополненные значениями по умолчанию; при ошибке — значения по умолчанию. */
 export async function getConfig(): Promise<Config> {
-  return ((await (await db()).get('kv', 'config')) as Config | undefined) ?? structuredClone(DEFAULT_CONFIG);
+  const r = validateConfig(await (await db()).get('kv', 'config'));
+  return r.ok ? r.config : structuredClone(DEFAULT_CONFIG);
 }
 
 export async function saveConfig(c: Config): Promise<void> {

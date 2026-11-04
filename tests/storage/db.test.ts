@@ -24,3 +24,10 @@ test('калибровки нет → null; после сохранения чи
   await saveBaseline(b);
   expect(await getBaseline()).toEqual(b);
 });
+
+test('старые сохранённые настройки дополняются новыми полями', async () => {
+  await saveConfig({ fillers: ['ну'] } as any);
+  const c = await getConfig();
+  expect(c.fillers).toEqual(['ну']);
+  expect(c.gaze).toEqual(DEFAULT_CONFIG.gaze);
+});
