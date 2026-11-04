@@ -14,3 +14,10 @@ test('частота и среднее время за последнюю сек
   expect(m.avgMs(2000)).toBe(8);
   expect(m.perSecond(5000)).toBe(0);
 });
+
+test('everyMs держит 10 к/с при кадрах 30 Гц', () => {
+  const due = everyMs(100);
+  let n = 0;
+  for (let i = 0; i < 300; i++) if (due(i * 33.3)) n++;   // ~10 с
+  expect(n).toBeGreaterThanOrEqual(95);
+});

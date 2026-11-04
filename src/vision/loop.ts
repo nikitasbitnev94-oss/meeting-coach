@@ -3,7 +3,8 @@ export function everyMs(intervalMs: number): (tMs: number) => boolean {
   let last = -Infinity;
   return tMs => {
     if (tMs - last < intervalMs) return false;
-    last = tMs;
+    // Шаг сетки, а не фактическое время кадра: иначе при 30 Гц частота падает до 7,5 к/с.
+    last = last === -Infinity ? tMs : Math.max(last + intervalMs, tMs - intervalMs);
     return true;
   };
 }
