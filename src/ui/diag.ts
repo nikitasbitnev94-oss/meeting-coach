@@ -4,6 +4,7 @@ import { createAsr } from '../audio/asr';
 import { findFillers, normalize, tally } from '../audio/fillers';
 import { HesitationConfirmer, HesitationDetector, HesitationPipeline, pitch } from '../audio/hesitation';
 import { rms } from '../audio/vad';
+import { OwnSpeech } from '../audio/ownSpeech';
 import { LabelRecorder } from '../diag/labeling';
 import { spectrumExport } from '../diag/offline';
 import { clock } from '../report/summary';
@@ -81,6 +82,7 @@ export function renderDiag(root: HTMLElement): void {
 
       const faceDue = everyMs(100), handDue = everyMs(200), showDue = everyMs(250);
       const faceRate = new RateMeter(), handRate = new RateMeter();
+      const mouth = new OwnSpeech(DEFAULT_CONFIG);
       let lastFace: FaceFrame | null = null;
       let lastHands: HandFrame = { hands: [] };
       let prev: Record<string, number> | null = null;
@@ -90,6 +92,7 @@ export function renderDiag(root: HTMLElement): void {
         if (faceDue(t)) {
           const t0 = performance.now();
           lastFace = face!.detect(video, t);
+          mouth.mouth(lastFace, t);
           faceRate.add(t, performance.now() - t0);
           if (lastFace) {
             if (prev) deltas.push({ t, d: TRACKED.reduce((s, k) => s + Math.abs((lastFace!.blendshapes[k] ?? 0) - (prev![k] ?? 0)), 0) });
@@ -116,6 +119,7 @@ export function renderDiag(root: HTMLElement): void {
             `взгляд суммарно yaw ${f0(yaw)}° pitch ${f0(pitch)}°`,
             `активность мимики за 30 с: ${f2(deltas.reduce((s, x) => s + x.d, 0))}`,
             `рука у лица: ${computeFrameSignals(fr, lastHands, NEUTRAL, DEFAULT_CONFIG).handNearFace ? 'да' : 'нет'}`,
+            `рот: размах за 0,7 с ${f2(mouth.mouthRange())} (порог «говорю» ${DEFAULT_CONFIG.vad.mouthMoveDelta})`,
             ...TRACKED.map(k => `${k}: ${f2(fr.blendshapes[k] ?? 0)}`),
           );
         } else {
@@ -123,7 +127,7 @@ export function renderDiag(root: HTMLElement): void {
         }
         out.textContent = lines.join('\n');
         stats.textContent = lines.slice(0, 2).join('\n');
-        pip!.render({ hint: null, fillers: 0, gazeShare: null, status: fr ? 'ok' : 'face-lost' });
+        pip!.render({ hint: null, fillers: 0, lastFiller: null, status: fr ? 'ok' : 'face-lost' });
       });
       stopBtn.disabled = false;
     } catch (e) {

@@ -14,6 +14,8 @@ export interface Baseline {
   blendshapes: Record<string, number>;
   gazeYawDeg: number; gazePitchDeg: number;
   activityNorm: number; createdAt: string;
+  /** Версия правила активности мимики; норма другой версии не используется. */
+  activityVersion?: number;
 }
 export interface FrameSignals {
   gazeOnCamera: boolean; frown: boolean; irritation: boolean; skepticism: boolean;

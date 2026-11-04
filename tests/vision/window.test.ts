@@ -54,3 +54,32 @@ test('короткий пропуск кадров (< 1 с) не сбрасыв�
   for (let t = 0; t <= 5000; t += 100) w.push(face({}), t);
   expect(w.push(face({}), 5800).stillMs).toBe(5800);
 });
+
+describe('норма активности мимики', () => {
+  const wiggle = (w: ExpressionWindow, from: number, to: number, amp: number, key = 'browInnerUp') => {
+    let r = w.push(face({}), from);
+    for (let t = from + 100, i = 1; t <= to; t += 100, i++) r = w.push(face({ [key]: i % 2 ? amp : 0 }), t);
+    return r;
+  };
+  test('норма неизвестна (0) — первые 2 минуты подсказки нет', () => {
+    const w = new ExpressionWindow(DEFAULT_CONFIG, 0);
+    expect(wiggle(w, 0, 110000, 0.3).expressivityRatio).toBe(0);
+  });
+  test('после 4 замеров по 30 с норма — их медиана: ровная активность ≈ 1×', () => {
+    const w = new ExpressionWindow(DEFAULT_CONFIG, 0);
+    expect(wiggle(w, 0, 150000, 0.1).expressivityRatio).toBeCloseTo(1, 1);
+  });
+  test('всплеск после разогрева — выше 2×', () => {
+    const w = new ExpressionWindow(DEFAULT_CONFIG, 0);
+    wiggle(w, 0, 150000, 0.05);
+    expect(wiggle(w, 150100, 180100, 0.2).expressivityRatio).toBeGreaterThan(2);
+  });
+  test('замеры этой встречи важнее нормы прошлых встреч', () => {
+    const w = new ExpressionWindow(DEFAULT_CONFIG, 3);
+    expect(wiggle(w, 0, 150000, 0.1).expressivityRatio).toBeCloseTo(1, 1);
+  });
+  test('открывание рта при речи не считается активной мимикой', () => {
+    const w = new ExpressionWindow(DEFAULT_CONFIG, 3);
+    expect(wiggle(w, 0, 30000, 0.4, 'jawOpen').expressivityRatio).toBe(0);
+  });
+});

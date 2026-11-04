@@ -35,3 +35,17 @@ test('устаревшие попадания паразитов отбрасы�
   const hits = [{ word: 'ну', tMs: 1000 }, { word: 'вот', tMs: 9000 }];
   expect(freshHits(hits, 10000, 3000)).toEqual([{ word: 'вот', tMs: 9000 }]);
 });
+
+import { LastFiller } from '../../src/session/meeting';
+test('последнее слово-паразит держится 4 с', () => {
+  const l = new LastFiller(4000);
+  expect(l.get(0)).toBeNull();
+  l.set('ну', 1000);
+  expect(l.get(4900)).toBe('ну');
+  expect(l.get(5100)).toBeNull();
+});
+test('«э-э» в строку слова не попадает', () => {
+  const l = new LastFiller(4000);
+  l.set('вот', 0); l.set('э-э', 100);
+  expect(l.get(200)).toBe('вот');
+});

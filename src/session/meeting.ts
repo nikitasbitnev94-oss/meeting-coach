@@ -40,3 +40,18 @@ export function buildMeeting(p: MeetingParts): Meeting {
 export function freshHits(hits: FillerHit[], tMs: number, maxAgeMs: number): FillerHit[] {
   return hits.filter(h => tMs - h.tMs <= maxAgeMs);
 }
+
+/** Последнее слово-паразит для строки в окне: держится holdMs. «Э-э» сюда не попадает, о нём — подсказка о частоте. */
+export class LastFiller {
+  private word: string | null = null;
+  private at = -Infinity;
+  constructor(private holdMs: number) {}
+  set(word: string, tMs: number): void {
+    if (word === 'э-э') return;
+    this.word = word;
+    this.at = tMs;
+  }
+  get(tMs: number): string | null {
+    return this.word && tMs - this.at <= this.holdMs ? this.word : null;
+  }
+}

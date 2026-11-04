@@ -5,6 +5,13 @@ export type CalibrationResult =
   | { ok: true; baseline: Baseline }
   | { ok: false; reason: 'no-face' | 'unstable' | 'away' | 'no-baseline' };
 
+/** Версия набора параметров для «активной мимики». Норму прошлой версии нельзя сравнивать с новой. */
+export const ACTIVITY_VERSION = 2;
+
+export function effectiveActivityNorm(b: Baseline | null): number {
+  return b && b.activityVersion === ACTIVITY_VERSION ? b.activityNorm : 0;
+}
+
 /** Направление взгляда в градусах: поворот головы плюс отклонение глаз. */
 export function gazeAngles(f: FaceFrame, cfg: Config): { yawDeg: number; pitchDeg: number } {
   return {
@@ -59,7 +66,8 @@ export class CalibrationAccumulator {
       baseline: {
         blendshapes,
         gazeYawDeg: mean(yaws), gazePitchDeg: mean(pitches),
-        activityNorm: prev?.activityNorm ?? cfg.face.activityNormDefault,
+        activityNorm: effectiveActivityNorm(prev) || cfg.face.activityNormDefault,
+        activityVersion: ACTIVITY_VERSION,
         createdAt,
       },
     };

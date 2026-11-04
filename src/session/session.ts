@@ -2,6 +2,7 @@ import { createAsr, type Asr } from '../audio/asr';
 import { startAudioTap, type AudioTap } from '../audio/audioTap';
 import { FillerTracker } from '../audio/fillerTracker';
 import { HesitationPipeline, type Segment } from '../audio/hesitation';
+import { OwnSpeech } from '../audio/ownSpeech';
 import { Vad } from '../audio/vad';
 import type { MediaHandle } from '../capture/source';
 import { appBase, attachVideo } from '../capture/video';
@@ -13,9 +14,10 @@ import type { PipWindow } from '../ui/pip';
 import { createFaceTracker, type FaceTracker } from '../vision/faceTracker';
 import { createHandTracker, type HandTracker } from '../vision/handTracker';
 import { everyMs, startAnalysisLoop, startIntervalLoop } from '../vision/loop';
+import { ACTIVITY_VERSION, effectiveActivityNorm } from '../vision/calibration';
 import { computeFrameSignals } from '../vision/signals';
 import { ExpressionWindow } from '../vision/window';
-import { buildMeeting, freshHits, pickStatus, type SpeechState } from './meeting';
+import { buildMeeting, freshHits, LastFiller, pickStatus, type SpeechState } from './meeting';
 
 export interface Session {
   stop(): Promise<Meeting>;
@@ -39,6 +41,7 @@ export interface SessionOptions {
 const CHECKPOINT_MS = 30_000;
 const STALE_HIT_MS = 3_000;
 const FALLBACK_TICK_MS = 100;
+const OWN_SPEECH_GRACE_MS = 1_500;
 
 export async function startSession(o: SessionOptions): Promise<Session> {
   const { config, baseline } = o;
@@ -57,12 +60,14 @@ export async function startSession(o: SessionOptions): Promise<Session> {
   [faceR, handR].forEach(r => { if (r.status === 'rejected') console.error(r.reason); });
 
   const engine = new RuleEngine(config);
-  const window_ = new ExpressionWindow(config, baseline.activityNorm);
+  const window_ = new ExpressionWindow(config, effectiveActivityNorm(baseline) || config.face.activityNormDefault);
   const tracker = new FillerTracker(config.fillers);
   const vad = new Vad(config);
+  const own = new OwnSpeech(config);
   const hesitation = new HesitationPipeline(config, tap.sampleRate);
   const events: CoachEvent[] = [];
   let pending: FillerHit[] = [];
+  const lastFiller = new LastFiller(4000);
   let speaking = false;
   let streamStart: number | null = null;
   let stopping = false;
@@ -95,11 +100,16 @@ export async function startSession(o: SessionOptions): Promise<Session> {
         a.accept(b);
       });
       a.onPartial(text => {
-        const hits = tracker.onPartial(text, performance.now());
+        const now = performance.now();
+        // Пользователь не говорил последние 1,5 с — это голос собеседника из колонок.
+        if (now - own.lastOwn() > OWN_SPEECH_GRACE_MS) return;
+        const hits = tracker.onPartial(text, now);
         if (config.enabled.filler) pending.push(...hits);
       });
       a.onFinal(words => {
-        const ev = tracker.onFinal(words, streamStart ?? t0);
+        const off = streamStart ?? t0;
+        const mine = words.filter(w => own.ownWithin(off + w.start * 1000 - 300, off + w.end * 1000 + 300));
+        const ev = tracker.onFinal(mine, off);
         if (config.enabled.filler) events.push(...ev);
         onHesitations(hesitation.onWords(words, streamStart ?? t0));
       });
@@ -125,12 +135,14 @@ export async function startSession(o: SessionOptions): Promise<Session> {
       : null;
     const hits = freshHits(pending, t, STALE_HIT_MS);
     pending = [];
-    const out = engine.update({ tMs: t, speaking, vision, fillerHits: hits });
+    hits.forEach(h => lastFiller.set(h.word, t));
+    own.mouth(frame, t);
+    const out = engine.update({ tMs: t, speaking: own.update(speaking, t), vision, fillerHits: hits });
     events.push(...out.closed);
     pip?.render({
       hint: out.hint,
       fillers: tracker.total(),
-      gazeShare: out.gazeShare,
+      lastFiller: lastFiller.get(t),
       status: pickStatus(out.status, face !== null, speech),
     });
   };
@@ -187,7 +199,7 @@ export async function startSession(o: SessionOptions): Promise<Session> {
         const meeting = snapshot(tEnd, []);
         await saveMeeting(meeting);
         const norm = window_.sampledNorm();
-        if (norm !== null) await saveBaseline({ ...baseline, activityNorm: norm });
+        if (norm !== null) await saveBaseline({ ...baseline, activityNorm: norm, activityVersion: ACTIVITY_VERSION });
         return meeting;
       })();
       return stopped;

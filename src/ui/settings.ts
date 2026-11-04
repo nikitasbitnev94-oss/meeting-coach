@@ -15,7 +15,7 @@ const FACE_LABEL: Record<string, string> = {
   skepticismAsym: 'Скепсис: разница бровей', skepticismSquintDelta: 'Скепсис: прищур', surpriseBrowDelta: 'Удивление: брови',
   surpriseJawDelta: 'Удивление: открытый рот', smirkAsym: 'Усмешка: разница уголков рта', smirkMinSmile: 'Усмешка: минимальная улыбка',
   cheerSmile: 'Весёлость: ширина улыбки', expressiveRatio: 'Активная мимика: во сколько раз выше нормы',
-  expressiveWindowMs: 'Активная мимика: окно, мс', activityNormDefault: 'Норма активности до первой длинной встречи',
+  expressiveWindowMs: 'Активная мимика: окно, мс', activityNormDefault: 'Норма активности до первых 2 минут встречи (0 — не подсказывать, пока не набрана)',
   stoneMs: 'Каменное лицо: без реакции, мс', reactionDelta: 'Каменное лицо: что считать реакцией', reactionPitchDeg: 'Каменное лицо: кивок, градусы',
 };
 

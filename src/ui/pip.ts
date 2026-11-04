@@ -1,7 +1,7 @@
 import type { Hint } from '../types';
 
 export type PipStatus = 'ok' | 'face-lost' | 'no-camera-model' | 'no-speech-model' | 'speech-loading';
-export interface PipState { hint: Hint | null; fillers: number; gazeShare: number | null; status: PipStatus }
+export interface PipState { hint: Hint | null; fillers: number; lastFiller: string | null; status: PipStatus }
 
 const STATUS_TEXT: Record<PipStatus, string | null> = {
   ok: null,
@@ -11,11 +11,10 @@ const STATUS_TEXT: Record<PipStatus, string | null> = {
   'speech-loading': 'распознавание речи загружается',
 };
 
-export function formatPipState(s: PipState): { hintText: string; countersText: string; statusText: string | null } {
-  const gaze = s.gazeShare === null ? '—' : `${Math.round(s.gazeShare * 100)}%`;
+export function formatPipState(s: PipState): { hintText: string; fillerText: string; statusText: string | null } {
   return {
     hintText: s.hint?.text ?? '',
-    countersText: `паразиты ${s.fillers} · в камеру ${gaze}`,
+    fillerText: s.lastFiller ? `«${s.lastFiller}» · паразиты ${s.fillers}` : `паразиты ${s.fillers}`,
     statusText: STATUS_TEXT[s.status],
   };
 }
@@ -89,7 +88,7 @@ export async function openPip(): Promise<PipWindow> {
   const hint = doc.createElement('div');
   hint.className = 'hint empty';
   const counters = doc.createElement('div');
-  counters.className = 'counters';
+  counters.className = 'filler';
   const status = doc.createElement('div');
   status.className = 'status';
   const bar = doc.createElement('div');
@@ -113,7 +112,8 @@ export async function openPip(): Promise<PipWindow> {
       const f = formatPipState(s);
       hint.textContent = f.hintText || 'всё хорошо';
       hint.classList.toggle('empty', !f.hintText);
-      counters.textContent = f.countersText;
+      counters.textContent = f.fillerText;
+      counters.classList.toggle('fresh', !!s.lastFiller);
       status.textContent = f.statusText ?? '';
     },
     addButton(label, onClick) {

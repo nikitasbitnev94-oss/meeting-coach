@@ -55,3 +55,19 @@ test('замер пользователя: голова −19°/−12°, гла�
   expect(Math.abs(g.yawDeg)).toBeLessThan(10);
   expect(Math.abs(g.pitchDeg)).toBeLessThan(10);
 });
+
+import { effectiveActivityNorm, ACTIVITY_VERSION } from '../../src/vision/calibration';
+test('норма старой версии не используется', () => {
+  const old = { blendshapes: {}, gazeYawDeg: 0, gazePitchDeg: 0, activityNorm: 3, createdAt: 'x' };
+  expect(effectiveActivityNorm(old)).toBe(0);
+  expect(effectiveActivityNorm({ ...old, activityNorm: 25, activityVersion: ACTIVITY_VERSION })).toBe(25);
+});
+test('полная калибровка не переносит норму старой версии', () => {
+  const prev = { blendshapes: {}, gazeYawDeg: 0, gazePitchDeg: 0, activityNorm: 3, createdAt: 'x' };
+  const a = new CalibrationAccumulator();
+  for (let i = 0; i < 100; i++) a.add(frame());
+  const r = a.result('full', prev, DEFAULT_CONFIG);
+  if (!r.ok) throw new Error(r.reason);
+  expect(r.baseline.activityNorm).toBe(0);
+  expect(r.baseline.activityVersion).toBe(ACTIVITY_VERSION);
+});

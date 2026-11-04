@@ -1,22 +1,19 @@
 import { formatPipState } from '../../src/ui/pip';
 
-test('счётчики и подсказка', () => {
-  const r = formatPipState({ hint: { id: 'gaze', text: 'в камеру' }, fillers: 7, gazeShare: 0.834, status: 'ok' });
-  expect(r).toEqual({ hintText: 'в камеру', countersText: 'паразиты 7 · в камеру 83%', statusText: null });
+test('подсказка и счётчик', () => {
+  const r = formatPipState({ hint: { id: 'gaze', text: 'в камеру' }, fillers: 7, lastFiller: null, status: 'ok' });
+  expect(r).toEqual({ hintText: 'в камеру', fillerText: 'паразиты 7', statusText: null });
 });
-
-test('нет речи — доля взгляда «—»', () => {
-  expect(formatPipState({ hint: null, fillers: 0, gazeShare: null, status: 'ok' }).countersText)
-    .toBe('паразиты 0 · в камеру —');
+test('последнее слово-паразит видно отдельно от главной подсказки', () => {
+  const r = formatPipState({ hint: { id: 'frown', text: 'расслабь брови' }, fillers: 3, lastFiller: 'вот', status: 'ok' });
+  expect(r.hintText).toBe('расслабь брови');
+  expect(r.fillerText).toBe('«вот» · паразиты 3');
 });
-
 test('статус лица', () => {
-  expect(formatPipState({ hint: null, fillers: 0, gazeShare: null, status: 'face-lost' }).statusText)
-    .toBe('лицо не в кадре');
+  expect(formatPipState({ hint: null, fillers: 0, lastFiller: null, status: 'face-lost' }).statusText).toBe('лицо не в кадре');
 });
-
 test('статусы моделей', () => {
-  const s = (status: any) => formatPipState({ hint: null, fillers: 0, gazeShare: null, status }).statusText;
+  const s = (status: any) => formatPipState({ hint: null, fillers: 0, lastFiller: null, status }).statusText;
   expect(s('no-camera-model')).toBe('анализ лица отключён');
   expect(s('no-speech-model')).toBe('анализ речи отключён');
   expect(s('speech-loading')).toBe('распознавание речи загружается');

@@ -1,9 +1,11 @@
 import type { Config } from '../config/defaults';
 import type { FaceFrame } from '../types';
 
+/** Брови и уголки рта. Открывание рта и сжатие губ — это артикуляция, при речи они двигаются всегда. */
 export const TRACKED_BLENDSHAPES = ['browDownLeft', 'browDownRight', 'browInnerUp', 'browOuterUpLeft',
-  'browOuterUpRight', 'mouthSmileLeft', 'mouthSmileRight', 'mouthPressLeft', 'mouthPressRight',
-  'mouthFrownLeft', 'mouthFrownRight', 'jawOpen'];
+  'browOuterUpRight', 'mouthSmileLeft', 'mouthSmileRight', 'mouthFrownLeft', 'mouthFrownRight'];
+/** Для «каменного лица» реакцией считается и движение рта. */
+const REACTION_BLENDSHAPES = [...TRACKED_BLENDSHAPES, 'jawOpen', 'mouthPressLeft', 'mouthPressRight'];
 
 const MIN_NORM_MEETING_MS = 5 * 60_000;
 
@@ -54,17 +56,27 @@ export class ExpressionWindow {
       this.ref = f;
       this.lastReaction = tMs;
     } else {
-      const moved = TRACKED_BLENDSHAPES.some(k => Math.abs((f.blendshapes[k] ?? 0) - (this.ref!.blendshapes[k] ?? 0)) >= c.reactionDelta)
+      const moved = REACTION_BLENDSHAPES.some(k => Math.abs((f.blendshapes[k] ?? 0) - (this.ref!.blendshapes[k] ?? 0)) >= c.reactionDelta)
         || Math.abs(f.headPitchDeg - this.ref.headPitchDeg) >= c.reactionPitchDeg;
       if (moved) {
         this.ref = f;
         this.lastReaction = tMs;
       }
     }
+    const norm = this.currentNorm();
     return {
-      expressivityRatio: this.activityNorm > 0 ? Math.max(0, this.sum) / this.activityNorm : 0,
+      expressivityRatio: norm > 0 ? Math.max(0, this.sum) / norm : 0,
       stillMs: tMs - this.lastReaction,
     };
+  }
+
+  /**
+   * Норма активности: медиана 30-секундных замеров этой встречи, когда их набралось expressiveMinSamples;
+   * до того — норма прошлых встреч; 0 — неизвестна, подсказки нет.
+   */
+  private currentNorm(): number {
+    if (this.samples.length >= this.cfg.face.expressiveMinSamples) return median(this.samples);
+    return this.activityNorm;
   }
 
   /** Медиана активности за 30-секундные окна этой встречи; null, если встреча короче 5 минут. */
@@ -72,8 +84,12 @@ export class ExpressionWindow {
     if (this.firstT === null || !this.prev || this.lastSample - this.firstT < MIN_NORM_MEETING_MS || !this.samples.length) {
       return null;
     }
-    const s = [...this.samples].sort((a, b) => a - b);
-    const mid = Math.floor(s.length / 2);
-    return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+    return median(this.samples);
   }
+}
+
+function median(xs: number[]): number {
+  const s = [...xs].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
 }

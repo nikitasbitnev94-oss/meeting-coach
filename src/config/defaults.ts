@@ -30,12 +30,12 @@ export const DEFAULT_CONFIG = {
     frownDelta: 0.25, irritationBrowDelta: 0.2, irritationPressDelta: 0.2,
     skepticismAsym: 0.25, skepticismSquintDelta: 0.3, surpriseBrowDelta: 0.3, surpriseJawDelta: 0.25,
     smirkAsym: 0.25, smirkMinSmile: 0.3, cheerSmile: 0.6,
-    expressiveRatio: 2, expressiveWindowMs: 30000, activityNormDefault: 3.0,
+    expressiveRatio: 2, expressiveWindowMs: 30000, activityNormDefault: 0, expressiveMinSamples: 4,
     stoneMs: 180000, reactionDelta: 0.15, reactionPitchDeg: 5, gapResetMs: 1000,
   },
   gaze: { maxYawDeg: 12, maxPitchDeg: 10, eyeYawRangeDeg: 30, eyePitchRangeDeg: 25, eyeYawSign: -1, eyePitchSign: -1 }, // знаки по замеру на ноутбуке пользователя 04.11.2026
   hands: { zoneUp: 0.4, zoneSide: 0.2, zoneDown: 0.5 },
-  vad: { hangoverMs: 700, minRms: 0.01, noiseRatio: 3 },
+  vad: { hangoverMs: 700, minRms: 0.01, noiseRatio: 3, mouthWindowMs: 700, mouthMoveDelta: 0.06 },
   // подобрано по разметке пользователя 04.11.2026: 10 мин, 47 отметок
   hesitation: { minRunMs: 240, minRms: 0.01, minCorr: 0.5, relRms: 0.5, maxPitchDrift: 0.2, wordMarginMs: 60, refWindowMs: 30000, minProb: 0.5 },
   asr: { loadTimeoutMs: 180000, flushTimeoutMs: 1500 },
