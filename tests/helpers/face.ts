@@ -7,3 +7,7 @@ export function frame(over: Partial<FaceFrame> = {}): FaceFrame {
     ...over,
   };
 }
+
+export function face(bs: Record<string, number> = {}, over: Partial<FaceFrame> = {}): FaceFrame {
+  return frame({ blendshapes: bs, ...over });
+}

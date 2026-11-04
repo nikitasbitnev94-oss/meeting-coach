@@ -8,6 +8,7 @@ import type { FaceFrame, HandFrame } from '../types';
 import { createFaceTracker, type FaceTracker } from '../vision/faceTracker';
 import { createHandTracker, type HandTracker } from '../vision/handTracker';
 import { everyMs, RateMeter, startAnalysisLoop } from '../vision/loop';
+import { computeFrameSignals } from '../vision/signals';
 import { openPip, type PipWindow } from './pip';
 
 export const SOURCE_ERROR_TEXT: Record<string, string> = {
@@ -25,6 +26,7 @@ const TRACKED = ['browDownLeft', 'browDownRight', 'browInnerUp', 'browOuterUpLef
   'mouthSmileLeft', 'mouthSmileRight', 'mouthPressLeft', 'mouthPressRight', 'mouthFrownLeft', 'mouthFrownRight',
   'jawOpen', 'eyeSquintLeft', 'eyeSquintRight'];
 
+const NEUTRAL = { blendshapes: {}, gazeYawDeg: 0, gazePitchDeg: 0, activityNorm: 1, createdAt: '' };
 const f2 = (n: number) => n.toFixed(2);
 const f0 = (n: number) => n.toFixed(0);
 
@@ -106,6 +108,7 @@ export function renderDiag(root: HTMLElement): void {
             `глаза yaw ${f2(fr.eyeYaw)} pitch ${f2(fr.eyePitch)}`,
             `взгляд суммарно yaw ${f0(yaw)}° pitch ${f0(pitch)}°`,
             `активность мимики за 30 с: ${f2(deltas.reduce((s, x) => s + x.d, 0))}`,
+            `рука у лица: ${computeFrameSignals(fr, lastHands, NEUTRAL, DEFAULT_CONFIG).handNearFace ? 'да' : 'нет'}`,
             ...TRACKED.map(k => `${k}: ${f2(fr.blendshapes[k] ?? 0)}`),
           );
         } else {
