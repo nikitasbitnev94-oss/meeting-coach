@@ -3,7 +3,7 @@ import type { Baseline, FaceFrame } from '../types';
 
 export type CalibrationResult =
   | { ok: true; baseline: Baseline }
-  | { ok: false; reason: 'no-face' | 'unstable' | 'no-baseline' };
+  | { ok: false; reason: 'no-face' | 'unstable' | 'away' | 'no-baseline' };
 
 /** Направление взгляда в градусах: поворот головы плюс отклонение глаз. */
 export function gazeAngles(f: FaceFrame, cfg: Config): { yawDeg: number; pitchDeg: number } {
@@ -42,6 +42,10 @@ export class CalibrationAccumulator {
     const yaws = gaze.map(g => g.yawDeg), pitches = gaze.map(g => g.pitchDeg);
     if (std(yaws) > cfg.calibration.maxGazeStdDeg || std(pitches) > cfg.calibration.maxGazeStdDeg) {
       return { ok: false, reason: 'unstable' };
+    }
+    // Камера почти всегда перед лицом: ровный взгляд далеко в сторону — это взгляд не в камеру.
+    if (Math.abs(mean(yaws)) > cfg.calibration.maxAbsDeg || Math.abs(mean(pitches)) > cfg.calibration.maxAbsDeg) {
+      return { ok: false, reason: 'away' };
     }
     const createdAt = new Date().toISOString();
     if (kind === 'gaze') {

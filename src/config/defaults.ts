@@ -36,7 +36,7 @@ export const DEFAULT_CONFIG = {
   hands: { zoneUp: 0.4, zoneSide: 0.2, zoneDown: 0.5 },
   vad: { hangoverMs: 700, minRms: 0.01, noiseRatio: 3 },
   hesitation: { minRunMs: 400, minRms: 0.02, maxPitchDrift: 0.1, minCorr: 0.5 },
-  calibration: { fullMs: 20000, gazeMs: 5000, minFaceShare: 0.7, maxGazeStdDeg: 4 },
+  calibration: { fullMs: 20000, gazeMs: 5000, minFaceShare: 0.7, maxGazeStdDeg: 4, maxAbsDeg: 25 },
 };
 
 export type Config = typeof DEFAULT_CONFIG;

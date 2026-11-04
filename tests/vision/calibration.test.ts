@@ -43,3 +43,9 @@ test('gazeAngles: голова плюс глаза', () => {
   expect(g.yawDeg).toBeCloseTo(10 - 0.2 * 30);
   expect(g.pitchDeg).toBeCloseTo(3 + 0.4 * 25);
 });
+
+test('ровно, но мимо камеры (голова повёрнута на 40°) → away', () => {
+  const a = new CalibrationAccumulator();
+  for (let i = 0; i < 100; i++) a.add(frame({ headYawDeg: 40 }));
+  expect(a.result('full', null, DEFAULT_CONFIG)).toEqual({ ok: false, reason: 'away' });
+});
