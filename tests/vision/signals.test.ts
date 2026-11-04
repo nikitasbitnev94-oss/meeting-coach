@@ -7,20 +7,28 @@ const B: Baseline = { blendshapes: {}, gazeYawDeg: 0, gazePitchDeg: 0, activityN
 const noHands: HandFrame = { hands: [] };
 const sig = (bs: Record<string, number>) => computeFrameSignals(face(bs), noHands, B, DEFAULT_CONFIG);
 
-test('хмурость по порогу', () => {
-  expect(sig({ browDownLeft: .3, browDownRight: .3 }).frown).toBe(true);
-  expect(sig({ browDownLeft: .2, browDownRight: .2 }).frown).toBe(false);
+// Пороги по записи мимики пользователя 04.11: спокойное лицо — брови 0,23–0,50, хмурость — 0,57–0,72.
+test('хмурость: брови ниже 0,55', () => {
+  expect(sig({ browDownLeft: .6, browDownRight: .6 }).frown).toBe(true);
+  expect(sig({ browDownLeft: .5, browDownRight: .5 }).frown).toBe(false);
 });
-test('хмурость считается от нормы', () => {
-  const b = { ...B, blendshapes: { browDownLeft: .2, browDownRight: .2 } };
-  expect(computeFrameSignals(face({ browDownLeft: .4, browDownRight: .4 }), noHands, b, DEFAULT_CONFIG).frown).toBe(false);
+test('хмурость не зависит от калибровки: спокойные брови 0,45 при норме 0,15 — не хмурость', () => {
+  const b = { ...B, blendshapes: { browDownLeft: .15, browDownRight: .15 } };
+  expect(computeFrameSignals(face({ browDownLeft: .45, browDownRight: .45 }), noHands, b, DEFAULT_CONFIG).frown).toBe(false);
 });
-test('раздражение требует и брови, и губы', () => {
-  expect(sig({ browDownLeft: .3, browDownRight: .3 }).irritation).toBe(false);
+test('раздражение: губы трубочкой при опущенных бровях', () => {
+  expect(sig({ browDownLeft: .4, browDownRight: .4, mouthPucker: .5 }).irritation).toBe(true);
+  expect(sig({ browDownLeft: .1, browDownRight: .1, mouthPucker: .5 }).irritation).toBe(false);
+});
+test('раздражение: сжатые губы при опущенных бровях', () => {
   expect(sig({ browDownLeft: .3, browDownRight: .3, mouthPressLeft: .3, mouthPressRight: .3 }).irritation).toBe(true);
 });
+test('скепсис: брови вниз и полуулыбка', () => {
+  expect(sig({ browDownLeft: .55, browDownRight: .55, mouthSmileLeft: .45, mouthSmileRight: .45 }).skepticism).toBe(true);
+  expect(sig({ browDownLeft: .55, browDownRight: .55, mouthSmileLeft: .85, mouthSmileRight: .85 }).skepticism).toBe(false);
+  expect(sig({ browDownLeft: .3, browDownRight: .3, mouthSmileLeft: .45, mouthSmileRight: .45 }).skepticism).toBe(false);
+});
 test('скепсис: одна бровь', () => expect(sig({ browOuterUpLeft: .4 }).skepticism).toBe(true));
-test('скепсис: прищур', () => expect(sig({ eyeSquintLeft: .4, eyeSquintRight: .4 }).skepticism).toBe(true));
 test('асимметрия считается от нормы', () => {
   const b = { ...B, blendshapes: { browOuterUpLeft: .3 } };
   expect(computeFrameSignals(face({ browOuterUpLeft: .4 }), noHands, b, DEFAULT_CONFIG).skepticism).toBe(false);

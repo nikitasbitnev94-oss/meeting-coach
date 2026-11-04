@@ -29,9 +29,11 @@ export function computeFrameSignals(f: FaceFrame, h: HandFrame, b: Baseline, cfg
   return {
     gazeOnCamera: Math.abs(g.yawDeg - b.gazeYawDeg) <= cfg.gaze.maxYawDeg
       && Math.abs(g.pitchDeg - b.gazePitchDeg) <= cfg.gaze.maxPitchDeg,
-    frown: delta('browDown') >= c.frownDelta,
-    irritation: delta('browDown') >= c.irritationBrowDelta && delta('mouthPress') >= c.irritationPressDelta,
-    skepticism: asym('browOuterUp') >= c.skepticismAsym || delta('eyeSquint') >= c.skepticismSquintDelta,
+    frown: pair('browDown') >= c.frownLevel,
+    irritation: pair('browDown') >= c.irritationBrowLevel
+      && (v('mouthPucker') >= c.irritationPucker || delta('mouthPress') >= c.irritationPressDelta),
+    skepticism: asym('browOuterUp') >= c.skepticismAsym
+      || (pair('browDown') >= c.skepticismBrowLevel && pair('mouthSmile') >= c.skepticismSmileMin && pair('mouthSmile') <= c.skepticismSmileMax),
     surprise: deltaOne('browInnerUp') >= c.surpriseBrowDelta && deltaOne('jawOpen') >= c.surpriseJawDelta,
     smirk: asym('mouthSmile') >= c.smirkAsym && Math.max(v('mouthSmileLeft'), v('mouthSmileRight')) >= c.smirkMinSmile,
     cheer: Math.min(v('mouthSmileLeft'), v('mouthSmileRight')) >= c.cheerSmile,

@@ -27,8 +27,10 @@ export const DEFAULT_CONFIG = {
     hesitationBurstCount: 3, hesitationWindowMs: 60000, hesitationFlashMs: 3000,
   },
   face: {
-    frownDelta: 0.25, irritationBrowDelta: 0.2, irritationPressDelta: 0.2,
-    skepticismAsym: 0.25, skepticismSquintDelta: 0.3, surpriseBrowDelta: 0.3, surpriseJawDelta: 0.25,
+    // Брови — по уровню, а не от калибровки: спокойные брови у пользователя гуляют 0,23–0,50 (запись мимики 04.11).
+    frownLevel: 0.55, irritationBrowLevel: 0.3, irritationPucker: 0.35, irritationPressDelta: 0.2,
+    skepticismBrowLevel: 0.45, skepticismSmileMin: 0.2, skepticismSmileMax: 0.7, skepticismAsym: 0.25,
+    surpriseBrowDelta: 0.3, surpriseJawDelta: 0.25,
     smirkAsym: 0.25, smirkMinSmile: 0.3, cheerSmile: 0.6,
     expressiveRatio: 2, expressiveWindowMs: 30000, activityNormDefault: 0, expressiveMinSamples: 4,
     stoneMs: 180000, reactionDelta: 0.15, reactionPitchDeg: 5, gapResetMs: 1000,

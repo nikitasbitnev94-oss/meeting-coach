@@ -11,8 +11,9 @@ const HINT_LABEL: Record<HintId, string> = {
 };
 
 const FACE_LABEL: Record<string, string> = {
-  frownDelta: 'Хмурость: опускание бровей', irritationBrowDelta: 'Раздражение: брови', irritationPressDelta: 'Раздражение: сжатые губы',
-  skepticismAsym: 'Скепсис: разница бровей', skepticismSquintDelta: 'Скепсис: прищур', surpriseBrowDelta: 'Удивление: брови',
+  frownLevel: 'Хмурость: уровень опущенных бровей', irritationBrowLevel: 'Раздражение: брови', irritationPucker: 'Раздражение: губы трубочкой',
+  irritationPressDelta: 'Раздражение: сжатые губы', skepticismBrowLevel: 'Скепсис: брови', skepticismSmileMin: 'Скепсис: полуулыбка от',
+  skepticismSmileMax: 'Скепсис: полуулыбка до', skepticismAsym: 'Скепсис: разница бровей', surpriseBrowDelta: 'Удивление: брови',
   surpriseJawDelta: 'Удивление: открытый рот', smirkAsym: 'Усмешка: разница уголков рта', smirkMinSmile: 'Усмешка: минимальная улыбка',
   cheerSmile: 'Весёлость: ширина улыбки', expressiveRatio: 'Активная мимика: во сколько раз выше нормы',
   expressiveWindowMs: 'Активная мимика: окно, мс', activityNormDefault: 'Норма активности до первых 2 минут встречи (0 — не подсказывать, пока не набрана)',
