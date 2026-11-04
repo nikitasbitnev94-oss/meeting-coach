@@ -43,3 +43,13 @@ test('история ограничена минутой', () => {
   for (let t = 0; t < 600000; t += 100) { o.mouth(face({ jawOpen: 0.02 }), t); o.update(true, t); }
   expect((o as any).history.length).toBeLessThanOrEqual(601);
 });
+
+import { keepOwnSegments } from '../../src/audio/ownSpeech';
+test('«э-э» засчитывается, только если пользователь говорил рядом (±3 с)', () => {
+  const o = new OwnSpeech(DEFAULT_CONFIG);
+  talk(o, 0, 1000); o.update(true, 1000);
+  still(o, 1100, 20000);
+  for (let t = 1100; t <= 20000; t += 100) o.update(true, t);   // дальше говорит собеседник
+  const segs = [{ start: 2500, end: 2800 }, { start: 15000, end: 15300 }];
+  expect(keepOwnSegments(segs, o, 3000)).toEqual([{ start: 2500, end: 2800 }]);
+});

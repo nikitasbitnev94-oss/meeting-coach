@@ -53,3 +53,11 @@ export class OwnSpeech {
     return this.mouthRange() >= this.cfg.vad.mouthMoveDelta;
   }
 }
+
+/**
+ * «Э-э» пользователя стоят между его словами; «э-э» собеседника — пока пользователь молчит.
+ * Оставляет отрезки, рядом с которыми (±padMs) пользователь говорил.
+ */
+export function keepOwnSegments<T extends { start: number; end: number }>(segs: T[], own: OwnSpeech, padMs: number): T[] {
+  return segs.filter(s => own.ownWithin(s.start - padMs, s.end + padMs));
+}

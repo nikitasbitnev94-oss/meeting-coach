@@ -2,7 +2,7 @@ import { createAsr, type Asr } from '../audio/asr';
 import { startAudioTap, type AudioTap } from '../audio/audioTap';
 import { FillerTracker } from '../audio/fillerTracker';
 import { HesitationPipeline, type Segment } from '../audio/hesitation';
-import { OwnSpeech } from '../audio/ownSpeech';
+import { keepOwnSegments, OwnSpeech } from '../audio/ownSpeech';
 import { Vad } from '../audio/vad';
 import type { MediaHandle } from '../capture/source';
 import { appBase, attachVideo } from '../capture/video';
@@ -42,6 +42,7 @@ const CHECKPOINT_MS = 30_000;
 const STALE_HIT_MS = 3_000;
 const FALLBACK_TICK_MS = 100;
 const OWN_SPEECH_GRACE_MS = 1_500;
+const OWN_HESITATION_PAD_MS = 3_000;
 
 export async function startSession(o: SessionOptions): Promise<Session> {
   const { config, baseline } = o;
@@ -75,7 +76,7 @@ export async function startSession(o: SessionOptions): Promise<Session> {
   // «э-э»: отрезок без слова. Подтверждается, когда распознаватель выдал слова дальше него (в конце фразы).
   const onHesitations = (segs: Segment[]) => {
     if (!config.enabled.filler) return;
-    for (const s of segs) {
+    for (const s of keepOwnSegments(segs, own, OWN_HESITATION_PAD_MS)) {
       const { hit, event } = tracker.addHesitation(s.start);
       events.push({ ...event, durationMs: s.end - s.start });
       pending.push({ ...hit, tMs: performance.now() }); // вспышка — сейчас, в отчёте — время самого «э-э»
