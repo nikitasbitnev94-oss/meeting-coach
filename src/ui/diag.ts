@@ -2,7 +2,9 @@ import { openFileSource, openLiveSource, SourceError, type MediaHandle } from '.
 import { startAudioTap } from '../audio/audioTap';
 import { createAsr } from '../audio/asr';
 import { findFillers, normalize, tally } from '../audio/fillers';
-import { HesitationDetector } from '../audio/hesitation';
+import { HesitationDetector, pitch } from '../audio/hesitation';
+import { rms } from '../audio/vad';
+import { LabelRecorder } from '../diag/labeling';
 import { clock } from '../report/summary';
 import { getConfig } from '../storage/db';
 import { appBase, attachVideo } from '../capture/video';
@@ -43,7 +45,8 @@ export function renderDiag(root: HTMLElement): void {
     <div class="row"><button class="primary" id="cam">Запустить камеру и окно подсказок</button><button id="stop" disabled>Остановить</button></div>
     <div id="msg" class="error"></div>
     <pre id="out" class="card">Нажмите кнопку, чтобы начать.</pre>
-    <div id="speech"></div>`;
+    <div id="speech"></div>
+    <div id="labeling"></div>`;
   const msg = root.querySelector<HTMLElement>('#msg')!;
   const out = root.querySelector<HTMLElement>('#out')!;
   const camBtn = root.querySelector<HTMLButtonElement>('#cam')!;
@@ -129,6 +132,93 @@ export function renderDiag(root: HTMLElement): void {
   stopBtn.onclick = stop;
 
   renderSpeechCheck(root.querySelector<HTMLElement>('#speech')!);
+  renderLabeling(root.querySelector<HTMLElement>('#labeling')!);
+}
+
+/**
+ * Разметка «э-э»: пользователь слушает запись и жмёт пробел на каждом «эээ».
+ * Сохраняется файл только с числами (громкость, тон, границы слов без текста, отметки).
+ */
+function renderLabeling(el: HTMLElement): void {
+  el.innerHTML = `
+    <h2>Разметка «э-э»</h2>
+    <p class="muted">Включите запись и нажимайте <b>пробел</b> каждый раз, когда слышите «эээ» или «ммм». Достаточно первых 5 минут — потом нажмите «Закончить».
+    В сохранённом файле только числа: громкость и тон каждые 20 мс, время начала и конца слов без самих слов, ваши отметки. Звука и текста в нём нет.</p>
+    <div class="row"><input type="file" id="lfile" accept="audio/*,video/*"><button id="lgo" class="primary" disabled>Начать разметку</button><button id="lend" disabled>Закончить и сохранить файл</button></div>
+    <div id="lmsg" class="error"></div>
+    <div id="lstate" class="card muted">Отметок: 0</div>`;
+  const file = el.querySelector<HTMLInputElement>('#lfile')!;
+  const go = el.querySelector<HTMLButtonElement>('#lgo')!;
+  const end = el.querySelector<HTMLButtonElement>('#lend')!;
+  const msg = el.querySelector<HTMLElement>('#lmsg')!;
+  const state = el.querySelector<HTMLElement>('#lstate')!;
+  file.onchange = () => { go.disabled = !file.files?.length; };
+
+  go.onclick = async () => {
+    const f = file.files?.[0];
+    if (!f) return;
+    go.disabled = true;
+    msg.textContent = '';
+    state.textContent = 'Загружаю модель распознавания…';
+    try {
+      const cfg = await getConfig();
+      const src = await openFileSource(f);
+      src.pause();
+      const tap = await startAudioTap(src.audioStream);
+      const asr = await createAsr(appBase() + 'models/vosk-ru.tar.gz', tap.sampleRate, cfg.asr);
+      const rec = new LabelRecorder(cfg.fillers, tap.sampleRate);
+      const hes = new HesitationDetector(cfg, tap.sampleRate);
+      let t0 = 0;
+      let streamStart: number | null = null;
+      tap.onFrame((fr, t) => {
+        const p = pitch(fr, tap.sampleRate);
+        rec.frame(rms(fr), p?.hz ?? 0, p?.corr ?? 0);
+        const h = hes.push(fr, t);
+        if (h !== null) rec.detected(h - t0);
+      });
+      tap.onBatch(b => {
+        streamStart ??= performance.now() - b.duration * 1000;
+        asr.accept(b);
+      });
+      asr.onFinal(ws => rec.words(ws, (streamStart ?? t0) - t0));
+      const onKey = (e: KeyboardEvent) => {
+        if (e.code !== 'Space') return;
+        e.preventDefault();
+        rec.label(performance.now() - t0);
+        state.textContent = `Отметок: ${rec.labelCount()}`;
+      };
+      let finished = false;
+      const finish = async () => {
+        if (finished) return;
+        finished = true;
+        document.removeEventListener('keydown', onKey);
+        end.disabled = true;
+        const duration = performance.now() - t0;
+        src.pause();
+        await asr.stop();
+        tap.stop(); src.stop();
+        const blob = new Blob([JSON.stringify(rec.export(duration))], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `razmetka-ee-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        state.textContent = `Готово. Отметок: ${rec.labelCount()}. Файл ${a.download} сохранён в загрузки — пришлите его в чат.`;
+        go.disabled = false;
+      };
+      // Пробел не должен нажимать кнопки и открывать выбор файла.
+      (document.activeElement as HTMLElement | null)?.blur();
+      document.addEventListener('keydown', onKey);
+      end.onclick = () => void finish();
+      src.onEnded(() => void finish());
+      t0 = performance.now();
+      src.resume();
+      end.disabled = false;
+      state.textContent = 'Слушайте и жмите пробел на каждом «эээ». Отметок: 0';
+    } catch (e) {
+      msg.textContent = errorText(e);
+      go.disabled = false;
+    }
+  };
 }
 
 /** Замер распознавания: файл с речью → таблица паразитов. Текст показывается и не сохраняется. */
