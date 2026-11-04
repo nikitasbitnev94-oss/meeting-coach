@@ -18,6 +18,7 @@ export class ExpressionWindow {
   private ref: FaceFrame | null = null;
   private lastReaction = 0;
   private firstT: number | null = null;
+  private lastT: number | null = null;
   private lastSample = 0;
   private samples: number[] = [];
 
@@ -29,6 +30,12 @@ export class ExpressionWindow {
       this.firstT = tMs;
       this.lastSample = tMs;
     }
+    // Лицо пропадало дольше gapResetMs: прошлый кадр и точка отсчёта реакции устарели.
+    if (this.lastT !== null && tMs - this.lastT > c.gapResetMs) {
+      this.prev = null;
+      this.ref = null;
+    }
+    this.lastT = tMs;
     if (this.prev) {
       const d = TRACKED_BLENDSHAPES.reduce((s, k) => s + Math.abs((f.blendshapes[k] ?? 0) - (this.prev!.blendshapes[k] ?? 0)), 0);
       this.deltas.push({ t: tMs, d });

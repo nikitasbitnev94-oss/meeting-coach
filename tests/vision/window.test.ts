@@ -41,3 +41,16 @@ test('встреча короче 5 минут — нормы нет', () => {
   for (let i = 0; i <= 1000; i++) w.push(face({ browInnerUp: i % 2 ? .1 : 0 }), i * 100);
   expect(w.sampledNorm()).toBeNull();
 });
+
+test('лицо вернулось после долгого отсутствия: нет «каменного лица» и скачка активности', () => {
+  const w = new ExpressionWindow(DEFAULT_CONFIG, 3);
+  for (let t = 0; t <= 10000; t += 100) w.push(face({}), t);
+  const r = w.push(face({ browDownLeft: .5, mouthSmileLeft: .5 }), 200000);   // 190 с без лица
+  expect(r.stillMs).toBe(0);
+  expect(r.expressivityRatio).toBe(0);
+});
+test('короткий пропуск кадров (< 1 с) не сбрасывает окно', () => {
+  const w = new ExpressionWindow(DEFAULT_CONFIG, 3);
+  for (let t = 0; t <= 5000; t += 100) w.push(face({}), t);
+  expect(w.push(face({}), 5800).stillMs).toBe(5800);
+});
