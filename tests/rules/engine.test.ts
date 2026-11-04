@@ -62,14 +62,14 @@ test('минимум 2 с показа', () => {
 });
 test('пауза 60 с между показами одной подсказки, событие пишется', () => {
   const e = new RuleEngine(DEFAULT_CONFIG); const closed: CoachEvent[] = [];
-  const tick = (t: number, on: boolean) => e.update({ tMs: t, speaking: false, vision: V({ handNearFace: on }), fillerHits: [] });
-  for (let t = 0; t <= 1500; t += 100) closed.push(...tick(t, true).closed);
-  for (let t = 1600; t <= 4000; t += 100) closed.push(...tick(t, false).closed);
+  const tick = (t: number, on: boolean) => e.update({ tMs: t, speaking: false, vision: V({ frown: on }), fillerHits: [] });
+  for (let t = 0; t <= 3500; t += 100) closed.push(...tick(t, true).closed);
+  for (let t = 3600; t <= 6000; t += 100) closed.push(...tick(t, false).closed);
   let last!: EngineOutput;
-  for (let t = 4100; t <= 6000; t += 100) { last = tick(t, true); closed.push(...last.closed); }
+  for (let t = 6100; t <= 9500; t += 100) { last = tick(t, true); closed.push(...last.closed); }
   expect(last.hint).toBeNull();
-  closed.push(...tick(6100, false).closed);
-  expect(closed.concat(e.finish(6100)).filter(c => c.type === 'hands')).toHaveLength(2);
+  closed.push(...tick(9600, false).closed);
+  expect(closed.concat(e.finish(9600)).filter(c => c.type === 'frown')).toHaveLength(2);
 });
 test('после паузы 60 с подсказка снова показывается', () => {
   const e = new RuleEngine(DEFAULT_CONFIG);
@@ -210,4 +210,17 @@ test('руки у лица работают, даже когда лицо зак
 test('отдельный сигнал рук важнее поля в vision', () => {
   const e = new RuleEngine(DEFAULT_CONFIG);
   expect(run(e, 0, 1000, 100, { vision: V({ handNearFace: false }), hands: true }).hint?.id).toBe('hands');
+});
+
+test('руки: каждое касание сигналится, пауза 3 с', () => {
+  const e = new RuleEngine(DEFAULT_CONFIG);
+  run(e, 0, 1500, 100, { hands: true });
+  run(e, 1600, 5000, 100, { hands: false });
+  expect(run(e, 5100, 6100, 100, { hands: true }).hint?.id).toBe('hands');
+});
+test('мимика: пауза между показами по-прежнему минута', () => {
+  const e = new RuleEngine(DEFAULT_CONFIG);
+  run(e, 0, 3500, 100, { vision: V({ frown: true }) });
+  run(e, 3600, 8000, 100, { vision: V() });
+  expect(run(e, 8100, 11100, 100, { vision: V({ frown: true }) }).hint).toBeNull();
 });

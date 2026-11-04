@@ -30,4 +30,6 @@ export interface Meeting {
   id: string; title: string; startedAt: string; durationMs: number;
   speakingMs: number; speakingWithFaceMs: number; onCameraMs: number;
   events: CoachEvent[];
+  /** Слов, отброшенных как чужая речь (рот пользователя не двигался). Для проверки порога. */
+  droppedForeignWords?: number;
 }

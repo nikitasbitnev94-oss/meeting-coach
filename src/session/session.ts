@@ -1,6 +1,7 @@
 import { createAsr, type Asr } from '../audio/asr';
 import { startAudioTap, type AudioTap } from '../audio/audioTap';
 import { FillerTracker } from '../audio/fillerTracker';
+import { findFillers, normalize } from '../audio/fillers';
 import { HesitationPipeline, type Segment } from '../audio/hesitation';
 import { keepOwnSegments, OwnSpeech } from '../audio/ownSpeech';
 import { Vad } from '../audio/vad';
@@ -41,7 +42,7 @@ export interface SessionOptions {
 const CHECKPOINT_MS = 30_000;
 const STALE_HIT_MS = 3_000;
 const FALLBACK_TICK_MS = 100;
-const OWN_SPEECH_GRACE_MS = 1_500;
+const OWN_SPEECH_GRACE_MS = 2_500;
 const OWN_HESITATION_PAD_MS = 3_000;
 
 export async function startSession(o: SessionOptions): Promise<Session> {
@@ -68,6 +69,7 @@ export async function startSession(o: SessionOptions): Promise<Session> {
   const hesitation = new HesitationPipeline(config, tap.sampleRate);
   const events: CoachEvent[] = [];
   let pending: FillerHit[] = [];
+  let droppedForeignWords = 0;
   const lastFiller = new LastFiller(4000);
   let speaking = false;
   let streamStart: number | null = null;
@@ -115,6 +117,8 @@ export async function startSession(o: SessionOptions): Promise<Session> {
       a.onFinal(words => {
         const off = streamStart ?? t0;
         const mine = words.filter(w => own.ownWithin(off + w.start * 1000 - 300, off + w.end * 1000 + 300));
+        const foreign = words.filter(w => !mine.includes(w));
+        droppedForeignWords += findFillers(foreign.map(w => normalize(w.word).join(' ')), config.fillers).length;
         const ev = tracker.onFinal(mine, off);
         if (config.enabled.filler) events.push(...ev);
         onHesitations(hesitation.onWords(words, streamStart ?? t0));
@@ -180,8 +184,9 @@ export async function startSession(o: SessionOptions): Promise<Session> {
   });
   watchClose(pip);
 
-  const snapshot = (tEnd: number, extra: CoachEvent[]) => buildMeeting({
-    id, title: o.title, t0, tEnd, startedAt, totals: engine.totals(), events: [...events, ...extra],
+  const snapshot = (tEnd: number, extra: CoachEvent[]) => ({
+    ...buildMeeting({ id, title: o.title, t0, tEnd, startedAt, totals: engine.totals(), events: [...events, ...extra] }),
+    droppedForeignWords,
   });
   // Промежуточное сохранение: закрытая вкладка не теряет встречу целиком.
   const checkpoint = setInterval(() => {

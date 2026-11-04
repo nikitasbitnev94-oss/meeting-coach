@@ -165,7 +165,9 @@ export class RuleEngine {
   private inCooldown(id: HintId, t: number): boolean {
     if (id === 'filler') return false;
     const last = this.lastShown.get(id);
-    return last !== undefined && t - last < this.cfg.display.cooldownMs;
+    // Касание лица — привычка: сигналить каждое касание. Мимика держится дольше — не надоедать.
+    const pause = id === 'hands' ? this.cfg.display.handsCooldownMs : this.cfg.display.cooldownMs;
+    return last !== undefined && t - last < pause;
   }
 
   private show(h: Hint, t: number): void {

@@ -22,7 +22,7 @@ export const DEFAULT_CONFIG = {
     cheer: 3000, frown: 3000, expressive: 0, stone: 0, gaze: 3000,
   } as Record<RuleId, number>,
   display: {
-    minShowMs: 2000, cooldownMs: 60000, fillerFlashMs: 2000, burstCount: 3, burstWindowMs: 60000,
+    minShowMs: 2000, cooldownMs: 60000, handsCooldownMs: 3000, fillerFlashMs: 2000, burstCount: 3, burstWindowMs: 60000,
     faceLostMs: 5000, maxTickGapMs: 500,
     hesitationBurstCount: 3, hesitationWindowMs: 60000, hesitationFlashMs: 3000,
   },
@@ -35,7 +35,7 @@ export const DEFAULT_CONFIG = {
   },
   gaze: { maxYawDeg: 12, maxPitchDeg: 10, eyeYawRangeDeg: 30, eyePitchRangeDeg: 25, eyeYawSign: -1, eyePitchSign: -1 }, // знаки по замеру на ноутбуке пользователя 04.11.2026
   hands: { zoneUp: 0.6, zoneSide: 0.3, zoneDown: 0.5, holdMs: 600, faceBoxMemoryMs: 3000 },
-  vad: { hangoverMs: 700, minRms: 0.01, noiseRatio: 3, mouthWindowMs: 700, mouthMoveDelta: 0.06 },
+  vad: { hangoverMs: 700, minRms: 0.01, noiseRatio: 3, mouthWindowMs: 1000, mouthMoveDelta: 0.04 },
   // подобрано по разметке пользователя 04.11.2026: 10 мин, 47 отметок
   hesitation: { minRunMs: 240, minRms: 0.01, minCorr: 0.5, relRms: 0.5, maxPitchDrift: 0.2, wordMarginMs: 60, refWindowMs: 30000, minProb: 0.5 },
   asr: { loadTimeoutMs: 180000, flushTimeoutMs: 1500 },

@@ -34,3 +34,8 @@ test('время чч:мм:сс от начала встречи', () => {
 
 import { esc } from '../../src/ui/report';
 test('название встречи экранируется', () => expect(esc('<b>"Q4" & P&L</b>')).toBe('&lt;b&gt;&quot;Q4&quot; &amp; P&amp;L&lt;/b&gt;'));
+
+test('слова, отброшенные как чужая речь, видны в сводке', () => {
+  expect(summarize(meeting({ droppedForeignWords: 7 })).droppedForeignWords).toBe(7);
+  expect(summarize(meeting({})).droppedForeignWords).toBe(0);
+});

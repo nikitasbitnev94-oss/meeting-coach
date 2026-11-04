@@ -10,6 +10,7 @@ export interface Summary {
   offCameraEpisodes: number;
   byType: Partial<Record<EventType, number>>;
   timeline: CoachEvent[];
+  droppedForeignWords: number;
 }
 
 export function summarize(m: Meeting): Summary {
@@ -29,6 +30,7 @@ export function summarize(m: Meeting): Summary {
     offCameraEpisodes: m.events.filter(e => e.type === 'gaze').length,
     byType,
     timeline,
+    droppedForeignWords: m.droppedForeignWords ?? 0,
   };
 }
 

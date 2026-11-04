@@ -5,12 +5,12 @@ export interface AudioTap {
   sampleRate: number;
   /** Кадр 20 мс. tMs — performance.now() главного окна при получении. */
   onFrame(cb: (f: Float32Array, tMs: number) => void): void;
-  /** Пачка для распознавания, 100 мс. */
+  /** Пачка для распознавания, 240 мс. */
   onBatch(cb: (b: AudioBuffer) => void): void;
   stop(): void;
 }
 
-const BATCH_FRAMES = 5; // 100 мс: меньше пачка — раньше распознаватель видит конец слова
+const BATCH_FRAMES = 12; // 240 мс; при 100 мс распознаватель не успевал и копил задержку
 
 export async function startAudioTap(stream: MediaStream): Promise<AudioTap> {
   const ctx = new AudioContext({ sampleRate: 16000 });
