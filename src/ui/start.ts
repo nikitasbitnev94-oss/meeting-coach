@@ -39,18 +39,31 @@ export function renderStart(root: HTMLElement): void {
     }
     startBtn.disabled = true;
     let source: MediaHandle | null = null;
+    let face: FaceTracker | null = null;
+    let pip: PipWindow | null = null;
+    let sessionStarted = false;
     try {
       source = mode === 'file' ? await openFileSource(file.files![0]) : await openLiveSource();
+      let endedEarly = false;
+      source.onEnded(() => { if (!sessionStarted) endedEarly = true; });
       startBtn.textContent = 'Загружаю модель лица…';
-      const [config, prev, face] = await Promise.all([getConfig(), getBaseline(), createFaceTracker(appBase())]);
+      const [config, prev, f] = await Promise.all([getConfig(), getBaseline(), createFaceTracker(appBase())]);
+      face = f;
       const baseline = await runCalibration(root, prev ? 'gaze' : 'full', { stream: source.videoStream, face, cfg: config, prev });
-      await waitForPipClick(root, async pip => {
-        root.innerHTML = '<h1>Загружаю модели…</h1><p class="muted">Распознавание речи загружается один раз, около 45 МБ.</p>';
-        const session = await startSession({ source: source!, pip, config, baseline, title, face });
-        showRunning(root, session, pip, source!);
-      });
+      source.pause();
+      if (endedEarly) throw new Error('Файл закончился во время калибровки. Возьмите запись длиннее.');
+      pip = await waitForPipClick(root);
+      root.innerHTML = '<h1>Загружаю модели…</h1><p class="muted">Подсказки по лицу появятся через несколько секунд, распознавание речи — после загрузки модели (около 45 МБ, один раз).</p>';
+      const session = await startSession({ source, pip, config, baseline, title, face });
+      sessionStarted = true;
+      source.resume();
+      showRunning(root, session, pip, source);
     } catch (e) {
-      source?.stop();
+      if (!sessionStarted) {
+        pip?.close();
+        face?.close();
+        source?.stop();
+      }
       renderStart(root);
       root.querySelector<HTMLElement>('#msg')!.textContent = errorText(e);
     }
@@ -58,21 +71,12 @@ export function renderStart(root: HTMLElement): void {
 }
 
 /** Окно поверх всех окон открывается только по клику пользователя. */
-function waitForPipClick(root: HTMLElement, then: (pip: PipWindow) => Promise<void>): Promise<void> {
+function waitForPipClick(root: HTMLElement): Promise<PipWindow> {
   root.innerHTML = `<h1>Калибровка готова</h1>
     <p>Нажмите кнопку: откроется маленькое окно подсказок. Поставьте его прямо под камерой.</p>
-    <div class="row"><button class="primary" id="pip">Открыть окно подсказок и начать</button></div>
-    <div id="msg" class="error"></div>`;
+    <div class="row"><button class="primary" id="pip">Открыть окно подсказок и начать</button></div>`;
   return new Promise((resolve, reject) => {
-    root.querySelector<HTMLButtonElement>('#pip')!.onclick = async () => {
-      try {
-        const pip = await openPip();
-        await then(pip);
-        resolve();
-      } catch (e) {
-        reject(e);
-      }
-    };
+    root.querySelector<HTMLButtonElement>('#pip')!.onclick = () => openPip().then(resolve, reject);
   });
 }
 
@@ -81,8 +85,11 @@ function showRunning(root: HTMLElement, session: Session, pip: PipWindow, source
     <p class="muted">Подсказки — в маленьком окне. Эту вкладку можно свернуть.</p>
     <div class="row"><button class="primary" id="end">Завершить</button><button id="reopen" hidden>Открыть окно подсказок</button></div>`;
   const reopen = root.querySelector<HTMLButtonElement>('#reopen')!;
+  const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+  window.addEventListener('beforeunload', warn);
   const finish = async () => {
     const m = await session.stop();
+    window.removeEventListener('beforeunload', warn);
     navigate(`#/report/${encodeURIComponent(m.id)}`);
   };
   const addEnd = (p: PipWindow) => p.addButton('Завершить', () => void finish());

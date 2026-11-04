@@ -4,6 +4,9 @@ export interface MediaHandle {
   kind: 'live' | 'file';
   stop(): void;
   onEnded(cb: () => void): void;
+  /** Только для файла: пауза между калибровкой и началом сессии, чтобы не потерять часть записи. */
+  pause(): void;
+  resume(): void;
 }
 
 export type SourceErrorReason = 'denied' | 'busy' | 'missing';
@@ -44,6 +47,8 @@ export async function openLiveSource(): Promise<MediaHandle> {
     kind: 'live',
     stop: () => stream.getTracks().forEach(t => t.stop()),
     onEnded: cb => { endedCbs.push(cb); },
+    pause: () => {},
+    resume: () => {},
   };
 }
 
@@ -61,5 +66,7 @@ export async function openFileSource(file: File): Promise<MediaHandle> {
     kind: 'file',
     stop: () => { video.pause(); URL.revokeObjectURL(video.src); },
     onEnded: cb => { endedCbs.push(cb); },
+    pause: () => video.pause(),
+    resume: () => { void video.play(); },
   };
 }

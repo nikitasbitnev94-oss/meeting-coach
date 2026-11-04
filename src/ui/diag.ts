@@ -162,7 +162,7 @@ function renderSpeechCheck(el: HTMLElement): void {
     try {
       const src = await openFileSource(f);
       const tap = await startAudioTap(src.audioStream);
-      const asr = await createAsr(appBase() + 'models/vosk-ru.tar.gz', tap.sampleRate);
+      const asr = await createAsr(appBase() + 'models/vosk-ru.tar.gz', tap.sampleRate, DEFAULT_CONFIG.asr);
       tap.onBatch(b => asr.accept(b));
       asr.onPartial(t => { partial.textContent = t; });
       asr.onFinal(ws => {
@@ -172,7 +172,7 @@ function renderSpeechCheck(el: HTMLElement): void {
       });
       draw(false);
       src.onEnded(() => {
-        setTimeout(() => { tap.stop(); asr.stop(); src.stop(); partial.textContent = ''; draw(true); go.disabled = false; }, 1500);
+        void asr.stop().then(() => { tap.stop(); src.stop(); partial.textContent = ''; draw(true); go.disabled = false; });
       });
     } catch (e) {
       smsg.textContent = errorText(e);

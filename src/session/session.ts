@@ -12,10 +12,10 @@ import type { Baseline, CoachEvent, FillerHit, HandFrame, Meeting } from '../typ
 import type { PipWindow } from '../ui/pip';
 import { createFaceTracker, type FaceTracker } from '../vision/faceTracker';
 import { createHandTracker, type HandTracker } from '../vision/handTracker';
-import { everyMs, startAnalysisLoop } from '../vision/loop';
+import { everyMs, startAnalysisLoop, startIntervalLoop } from '../vision/loop';
 import { computeFrameSignals } from '../vision/signals';
 import { ExpressionWindow } from '../vision/window';
-import { buildMeeting, pickStatus } from './meeting';
+import { buildMeeting, freshHits, pickStatus, type SpeechState } from './meeting';
 
 export interface Session {
   stop(): Promise<Meeting>;
@@ -34,22 +34,25 @@ export interface SessionOptions {
   face?: FaceTracker;
 }
 
+const CHECKPOINT_MS = 30_000;
+const STALE_HIT_MS = 3_000;
+const FALLBACK_TICK_MS = 100;
+
 export async function startSession(o: SessionOptions): Promise<Session> {
   const { config, baseline } = o;
   const base = appBase();
   const t0 = performance.now();
   const startedAt = new Date().toISOString();
+  const id = crypto.randomUUID();
 
   const tap: AudioTap = await startAudioTap(o.source.audioStream);
-  const [faceR, handR, asrR] = await Promise.allSettled([
+  const [faceR, handR] = await Promise.allSettled([
     o.face ? Promise.resolve(o.face) : createFaceTracker(base),
     createHandTracker(base),
-    createAsr(base + 'models/vosk-ru.tar.gz', tap.sampleRate),
   ]);
   const face: FaceTracker | null = faceR.status === 'fulfilled' ? faceR.value : null;
   const hands: HandTracker | null = handR.status === 'fulfilled' ? handR.value : null;
-  const asr: Asr | null = asrR.status === 'fulfilled' ? asrR.value : null;
-  [faceR, handR, asrR].forEach(r => { if (r.status === 'rejected') console.error(r.reason); });
+  [faceR, handR].forEach(r => { if (r.status === 'rejected') console.error(r.reason); });
 
   const engine = new RuleEngine(config);
   const window_ = new ExpressionWindow(config, baseline.activityNorm);
@@ -57,11 +60,12 @@ export async function startSession(o: SessionOptions): Promise<Session> {
   const vad = new Vad(config);
   const hesitation = new HesitationDetector(config, tap.sampleRate);
   const events: CoachEvent[] = [];
-  const pending: FillerHit[] = [];
+  let pending: FillerHit[] = [];
   let speaking = false;
   let streamStart: number | null = null;
+  let stopping = false;
 
-  // звук
+  // звук: «говорит» и «э-э» сразу, распознавание — когда загрузится модель
   tap.onFrame((f, t) => {
     speaking = vad.push(f, t);
     const h = hesitation.push(f, t);
@@ -71,20 +75,29 @@ export async function startSession(o: SessionOptions): Promise<Session> {
       events.push(event);
     }
   });
-  if (asr) {
-    tap.onBatch(b => {
-      streamStart ??= performance.now() - b.duration * 1000;
-      asr.accept(b);
-    });
-    asr.onPartial(text => {
-      const hits = tracker.onPartial(text, performance.now());
-      if (config.enabled.filler) pending.push(...hits);
-    });
-    asr.onFinal(words => {
-      const ev = tracker.onFinal(words, streamStart ?? t0);
-      if (config.enabled.filler) events.push(...ev);
-    });
-  }
+
+  let asr: Asr | null = null;
+  let speech: SpeechState = 'loading';
+  void createAsr(base + 'models/vosk-ru.tar.gz', tap.sampleRate, config.asr).then(
+    a => {
+      if (stopping) { void a.stop(); return; }
+      asr = a;
+      speech = 'ok';
+      tap.onBatch(b => {
+        streamStart ??= performance.now() - b.duration * 1000;
+        a.accept(b);
+      });
+      a.onPartial(text => {
+        const hits = tracker.onPartial(text, performance.now());
+        if (config.enabled.filler) pending.push(...hits);
+      });
+      a.onFinal(words => {
+        const ev = tracker.onFinal(words, streamStart ?? t0);
+        if (config.enabled.filler) events.push(...ev);
+      });
+    },
+    e => { console.error(e); speech = 'failed'; },
+  );
 
   // видео: в окне подсказок и запасное на странице
   let pip: PipWindow | null = o.pip;
@@ -102,26 +115,38 @@ export async function startSession(o: SessionOptions): Promise<Session> {
     const vision = frame
       ? { ...computeFrameSignals(frame, lastHands, baseline, config), ...window_.push(frame, t) }
       : null;
-    const out = engine.update({ tMs: t, speaking, vision, fillerHits: pending.splice(0) });
+    const hits = freshHits(pending, t, STALE_HIT_MS);
+    pending = [];
+    const out = engine.update({ tMs: t, speaking, vision, fillerHits: hits });
     events.push(...out.closed);
     pip?.render({
       hint: out.hint,
       fillers: tracker.total(),
       gazeShare: out.gazeShare,
-      status: pickStatus(out.status, face !== null, asr !== null),
+      status: pickStatus(out.status, face !== null, speech),
     });
   };
 
   let stopLoop = startAnalysisLoop(pip.win, tick);
   const watchClose = (p: PipWindow) => p.onClose(() => {
-    if (pip !== p) return;
+    if (pip !== p || stopping) return;
     pip = null;
     stopLoop();
     video = fallbackVideo;
-    stopLoop = startAnalysisLoop(window, tick);
+    // В фоновой вкладке requestAnimationFrame не срабатывает, таймер — срабатывает, хоть и реже.
+    stopLoop = startIntervalLoop(tick, FALLBACK_TICK_MS);
     closedCbs.forEach(cb => cb());
   });
   watchClose(pip);
+
+  const snapshot = (tEnd: number, extra: CoachEvent[]) => buildMeeting({
+    id, title: o.title, t0, tEnd, startedAt, totals: engine.totals(), events: [...events, ...extra],
+  });
+  // Промежуточное сохранение: закрытая вкладка не теряет встречу целиком.
+  const checkpoint = setInterval(() => {
+    const t = performance.now();
+    void saveMeeting(snapshot(t, engine.snapshot(t))).catch(console.error);
+  }, CHECKPOINT_MS);
 
   let stopped: Promise<Meeting> | null = null;
   return {
@@ -135,17 +160,20 @@ export async function startSession(o: SessionOptions): Promise<Session> {
     onPipClosed(cb) { closedCbs.push(cb); },
     stop() {
       stopped ??= (async () => {
-        const tEnd = performance.now();
+        stopping = true;
+        clearInterval(checkpoint);
         stopLoop();
+        // Сначала дослушать последнюю фразу, потом закрывать звук.
+        // Если модель ещё грузится, не ждём: обработчик загрузки сам её закроет (stopping = true).
+        await (asr as Asr | null)?.stop();
+        const tEnd = performance.now();
         events.push(...engine.finish(tEnd));
-        face?.close(); hands?.close(); asr?.stop(); tap.stop(); o.source.stop();
+        face?.close(); hands?.close(); tap.stop(); o.source.stop();
         fallbackVideo.remove();
         const p = pip;
         pip = null;
         p?.close();
-        const meeting = buildMeeting({
-          id: crypto.randomUUID(), title: o.title, t0, tEnd, startedAt, totals: engine.totals(), events,
-        });
+        const meeting = snapshot(tEnd, []);
         await saveMeeting(meeting);
         const norm = window_.sampledNorm();
         if (norm !== null) await saveBaseline({ ...baseline, activityNorm: norm });

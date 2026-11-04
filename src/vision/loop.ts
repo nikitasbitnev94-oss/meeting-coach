@@ -45,3 +45,11 @@ export class RateMeter {
     while (this.items.length && this.items[0].t <= tMs - 1000) this.items.shift();
   }
 }
+
+/** Запасной цикл на таймере, когда окна подсказок нет: requestAnimationFrame в фоновой вкладке не срабатывает. */
+export function startIntervalLoop(tick: (tMs: number) => void, intervalMs: number): () => void {
+  const id = setInterval(() => {
+    try { tick(performance.now()); } catch (e) { console.error(e); }
+  }, intervalMs);
+  return () => clearInterval(id);
+}

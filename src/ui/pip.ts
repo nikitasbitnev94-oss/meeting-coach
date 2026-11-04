@@ -1,6 +1,6 @@
 import type { Hint } from '../types';
 
-export type PipStatus = 'ok' | 'face-lost' | 'no-camera-model' | 'no-speech-model';
+export type PipStatus = 'ok' | 'face-lost' | 'no-camera-model' | 'no-speech-model' | 'speech-loading';
 export interface PipState { hint: Hint | null; fillers: number; gazeShare: number | null; status: PipStatus }
 
 const STATUS_TEXT: Record<PipStatus, string | null> = {
@@ -8,6 +8,7 @@ const STATUS_TEXT: Record<PipStatus, string | null> = {
   'face-lost': 'лицо не в кадре',
   'no-camera-model': 'анализ лица отключён',
   'no-speech-model': 'анализ речи отключён',
+  'speech-loading': 'распознавание речи загружается',
 };
 
 export function formatPipState(s: PipState): { hintText: string; countersText: string; statusText: string | null } {

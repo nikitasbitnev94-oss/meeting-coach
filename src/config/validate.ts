@@ -1,6 +1,6 @@
 import { DEFAULT_CONFIG, type Config } from './defaults';
 
-const NUMERIC_GROUPS = ['minDurationMs', 'display', 'face', 'gaze', 'hands', 'vad', 'hesitation', 'calibration'] as const;
+const NUMERIC_GROUPS = ['minDurationMs', 'display', 'face', 'gaze', 'hands', 'vad', 'hesitation', 'asr', 'calibration'] as const;
 /** Поля, которые не редактируются в настройках и всегда берутся из значений по умолчанию. */
 const LOCKED = new Set(['gaze.eyeYawSign']);
 

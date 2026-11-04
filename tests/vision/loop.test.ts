@@ -21,3 +21,15 @@ test('everyMs держит 10 к/с при кадрах 30 Гц', () => {
   for (let i = 0; i < 300; i++) if (due(i * 33.3)) n++;   // ~10 с
   expect(n).toBeGreaterThanOrEqual(95);
 });
+
+import { startIntervalLoop } from '../../src/vision/loop';
+test('запасной цикл на таймере вызывает tick и останавливается', async () => {
+  vi.useFakeTimers();
+  const ticks: number[] = [];
+  const stop = startIntervalLoop(t => ticks.push(t), 100);
+  await vi.advanceTimersByTimeAsync(350);
+  stop();
+  await vi.advanceTimersByTimeAsync(500);
+  expect(ticks).toHaveLength(3);
+  vi.useRealTimers();
+});

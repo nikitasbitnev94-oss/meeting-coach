@@ -97,6 +97,14 @@ export class RuleEngine {
     return out;
   }
 
+  /** Открытые события как если бы они закончились в tMs; состояние не меняется. Для промежуточного сохранения. */
+  snapshot(tMs: number): CoachEvent[] {
+    return [...this.open].map(id => {
+      const start = this.onset.get(id)!;
+      return { type: id, tMs: start, durationMs: tMs - start };
+    });
+  }
+
   totals(): { speakingMs: number; speakingWithFaceMs: number; onCameraMs: number } {
     return { speakingMs: this.speakingMs, speakingWithFaceMs: this.speakingWithFaceMs, onCameraMs: this.onCameraMs };
   }

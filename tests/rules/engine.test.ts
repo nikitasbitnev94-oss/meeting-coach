@@ -148,3 +148,11 @@ test('отключённые паразиты не мигают', () => {
   const e = new RuleEngine(cfg);
   expect(e.update({ tMs: 0, speaking: true, vision: V(), fillerHits: [{ word: 'ну', tMs: 0 }] }).hint).toBeNull();
 });
+
+test('снимок открытых событий не закрывает их', () => {
+  const e = new RuleEngine(DEFAULT_CONFIG);
+  run(e, 0, 4000, 100, { vision: V({ frown: true }) });
+  expect(e.snapshot(4000)).toEqual([{ type: 'frown', tMs: 0, durationMs: 4000 }]);
+  expect(e.update({ tMs: 4100, speaking: false, vision: V(), fillerHits: [] }).closed)
+    .toEqual([{ type: 'frown', tMs: 0, durationMs: 4100 }]);
+});

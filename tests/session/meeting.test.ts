@@ -1,11 +1,12 @@
 import { buildMeeting, pickStatus } from '../../src/session/meeting';
 import type { CoachEvent } from '../../src/types';
 
-test('статус: лицо не в кадре важнее отсутствия модели речи', () => {
-  expect(pickStatus('face-lost', true, false)).toBe('face-lost');
-  expect(pickStatus('ok', true, false)).toBe('no-speech-model');
-  expect(pickStatus('face-lost', false, true)).toBe('no-camera-model');
-  expect(pickStatus('ok', true, true)).toBe('ok');
+test('статус: лицо не в кадре важнее состояния модели речи', () => {
+  expect(pickStatus('face-lost', true, 'failed')).toBe('face-lost');
+  expect(pickStatus('ok', true, 'failed')).toBe('no-speech-model');
+  expect(pickStatus('ok', true, 'loading')).toBe('speech-loading');
+  expect(pickStatus('face-lost', false, 'ok')).toBe('no-camera-model');
+  expect(pickStatus('ok', true, 'ok')).toBe('ok');
 });
 
 test('встреча: время событий от начала, по порядку, итоги движка', () => {
@@ -27,4 +28,10 @@ test('встреча: время событий от начала, по поря
       { type: 'frown', tMs: 5000, durationMs: 3000 },
     ],
   });
+});
+
+import { freshHits } from '../../src/session/meeting';
+test('устаревшие попадания паразитов отбрасываются', () => {
+  const hits = [{ word: 'ну', tMs: 1000 }, { word: 'вот', tMs: 9000 }];
+  expect(freshHits(hits, 10000, 3000)).toEqual([{ word: 'вот', tMs: 9000 }]);
 });

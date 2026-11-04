@@ -19,4 +19,5 @@ test('статусы моделей', () => {
   const s = (status: any) => formatPipState({ hint: null, fillers: 0, gazeShare: null, status }).statusText;
   expect(s('no-camera-model')).toBe('анализ лица отключён');
   expect(s('no-speech-model')).toBe('анализ речи отключён');
+  expect(s('speech-loading')).toBe('распознавание речи загружается');
 });
