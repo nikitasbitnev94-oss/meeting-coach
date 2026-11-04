@@ -1,5 +1,6 @@
 // Оценка детектора «э-э» на файле разметки с диагностики. Запуск:
 //   EEE_DATA=/путь/razmetka-ee.json npx vitest run tests/audio/hesitation.eval.test.ts
+// EEE_EXCLUDE=143000-291000 — исключить участок (мс), например где в записи звучат чужие голоса.
 // Сам файл разметки в репозиторий не кладётся.
 import { readFileSync } from 'node:fs';
 import { HesitationConfirmer, HesitationDetector, type Segment } from '../../src/audio/hesitation';
@@ -28,7 +29,11 @@ test.skipIf(!path)('детектор «э-э» на разметке польз�
     if (batch.length) found.push(...conf.onWords(batch, 0));
   }
   found.push(...conf.flush());
-  const labels: number[] = [...d.labels].sort((a, b) => a - b);
+  const [exLo, exHi] = (process.env.EEE_EXCLUDE ?? '0-0').split('-').map(Number);
+  const outside = (t: number) => !(t > exLo && t < exHi);
+  const kept = found.filter(s => outside(s.end));
+  found.length = 0; found.push(...kept);
+  const labels: number[] = d.labels.filter(outside).sort((a: number, b: number) => a - b);
   const used = new Set<number>();
   let tp = 0;
   for (const l of labels) {
