@@ -9,7 +9,7 @@ export type CalibrationResult =
 export function gazeAngles(f: FaceFrame, cfg: Config): { yawDeg: number; pitchDeg: number } {
   return {
     yawDeg: f.headYawDeg + f.eyeYaw * cfg.gaze.eyeYawRangeDeg * cfg.gaze.eyeYawSign,
-    pitchDeg: f.headPitchDeg + f.eyePitch * cfg.gaze.eyePitchRangeDeg,
+    pitchDeg: f.headPitchDeg + f.eyePitch * cfg.gaze.eyePitchRangeDeg * cfg.gaze.eyePitchSign,
   };
 }
 

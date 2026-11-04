@@ -32,7 +32,7 @@ export const DEFAULT_CONFIG = {
     expressiveRatio: 2, expressiveWindowMs: 30000, activityNormDefault: 3.0,
     stoneMs: 180000, reactionDelta: 0.15, reactionPitchDeg: 5, gapResetMs: 1000,
   },
-  gaze: { maxYawDeg: 12, maxPitchDeg: 10, eyeYawRangeDeg: 30, eyePitchRangeDeg: 25, eyeYawSign: 1 },
+  gaze: { maxYawDeg: 12, maxPitchDeg: 10, eyeYawRangeDeg: 30, eyePitchRangeDeg: 25, eyeYawSign: -1, eyePitchSign: -1 }, // знаки по замеру на ноутбуке пользователя 04.11.2026
   hands: { zoneUp: 0.4, zoneSide: 0.2, zoneDown: 0.5 },
   vad: { hangoverMs: 700, minRms: 0.01, noiseRatio: 3 },
   hesitation: { minRunMs: 400, minRms: 0.02, maxPitchDrift: 0.1, minCorr: 0.5 },

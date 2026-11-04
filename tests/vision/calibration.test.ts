@@ -38,14 +38,20 @@ test('gaze обновляет только взгляд', () => {
   expect(r.baseline.blendshapes).toEqual(prev.blendshapes);
   expect(r.baseline.activityNorm).toBe(4);
 });
-test('gazeAngles: голова плюс глаза', () => {
+test('gazeAngles: голова плюс глаза со знаками из конфига', () => {
   const g = gazeAngles(frame({ headYawDeg: 10, eyeYaw: -0.2, headPitchDeg: 3, eyePitch: 0.4 }), DEFAULT_CONFIG);
-  expect(g.yawDeg).toBeCloseTo(10 - 0.2 * 30);
-  expect(g.pitchDeg).toBeCloseTo(3 + 0.4 * 25);
+  expect(g.yawDeg).toBeCloseTo(10 + 0.2 * 30);
+  expect(g.pitchDeg).toBeCloseTo(3 - 0.4 * 25);
 });
 
 test('ровно, но мимо камеры (голова повёрнута на 40°) → away', () => {
   const a = new CalibrationAccumulator();
   for (let i = 0; i < 100; i++) a.add(frame({ headYawDeg: 40 }));
   expect(a.result('full', null, DEFAULT_CONFIG)).toEqual({ ok: false, reason: 'away' });
+});
+
+test('замер пользователя: голова −19°/−12°, глаза −0.85/−0.31 при взгляде в камеру → почти 0', () => {
+  const g = gazeAngles(frame({ headYawDeg: -19, eyeYaw: -0.85, headPitchDeg: -12, eyePitch: -0.31 }), DEFAULT_CONFIG);
+  expect(Math.abs(g.yawDeg)).toBeLessThan(10);
+  expect(Math.abs(g.pitchDeg)).toBeLessThan(10);
 });

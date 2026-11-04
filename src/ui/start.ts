@@ -56,6 +56,7 @@ export function renderStart(root: HTMLElement): void {
       root.innerHTML = '<h1>Загружаю модели…</h1><p class="muted">Подсказки по лицу появятся через несколько секунд, распознавание речи — после загрузки модели (около 45 МБ, один раз).</p>';
       const session = await startSession({ source, pip, config, baseline, title, face });
       sessionStarted = true;
+      if (source.kind === 'file') await session.speechSettled;
       source.resume();
       showRunning(root, session, pip, source);
     } catch (e) {

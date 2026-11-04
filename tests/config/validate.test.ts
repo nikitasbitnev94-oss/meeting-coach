@@ -25,7 +25,7 @@ test('тексты подсказок и знак глаз не меняются
   const c: any = structuredClone(DEFAULT_CONFIG); c.texts.hands = 'xxx'; c.gaze.eyeYawSign = 7;
   const r = validateConfig(c);
   expect(r.ok && r.config.texts.hands).toBe('руки от лица');
-  expect(r.ok && r.config.gaze.eyeYawSign).toBe(1);
+  expect(r.ok && r.config.gaze.eyeYawSign).toBe(DEFAULT_CONFIG.gaze.eyeYawSign);
 });
 test('не объект — конфиг по умолчанию', () => {
   expect(validateConfig(null)).toEqual({ ok: true, config: DEFAULT_CONFIG });

@@ -2,6 +2,9 @@ import { openFileSource, openLiveSource, SourceError, type MediaHandle } from '.
 import { startAudioTap } from '../audio/audioTap';
 import { createAsr } from '../audio/asr';
 import { findFillers, normalize, tally } from '../audio/fillers';
+import { HesitationDetector } from '../audio/hesitation';
+import { clock } from '../report/summary';
+import { getConfig } from '../storage/db';
 import { appBase, attachVideo } from '../capture/video';
 import { DEFAULT_CONFIG } from '../config/defaults';
 import type { FaceFrame, HandFrame } from '../types';
@@ -9,6 +12,7 @@ import { createFaceTracker, type FaceTracker } from '../vision/faceTracker';
 import { createHandTracker, type HandTracker } from '../vision/handTracker';
 import { everyMs, RateMeter, startAnalysisLoop } from '../vision/loop';
 import { computeFrameSignals } from '../vision/signals';
+import { gazeAngles } from '../vision/calibration';
 import { openPip, type PipWindow } from './pip';
 
 export const SOURCE_ERROR_TEXT: Record<string, string> = {
@@ -94,15 +98,13 @@ export function renderDiag(root: HTMLElement): void {
           handRate.add(t, performance.now() - t0);
         }
         if (!showDue(t)) return;
-        const g = DEFAULT_CONFIG.gaze;
         const lines = [
           `лицо: ${faceRate.perSecond(t)} к/с, ${f0(faceRate.avgMs(t))} мс/кадр`,
           `руки: ${handRate.perSecond(t)} к/с, ${f0(handRate.avgMs(t))} мс/кадр, в кадре ${lastHands.hands.length}`,
         ];
         const fr = lastFace as FaceFrame | null;
         if (fr) {
-          const yaw = fr.headYawDeg + fr.eyeYaw * g.eyeYawRangeDeg * g.eyeYawSign;
-          const pitch = fr.headPitchDeg + fr.eyePitch * g.eyePitchRangeDeg;
+          const { yawDeg: yaw, pitchDeg: pitch } = gazeAngles(fr, DEFAULT_CONFIG);
           lines.push(
             `голова yaw ${f0(fr.headYawDeg)}° pitch ${f0(fr.headPitchDeg)}°`,
             `глаза yaw ${f2(fr.eyeYaw)} pitch ${f2(fr.eyePitch)}`,
@@ -152,24 +154,36 @@ function renderSpeechCheck(el: HTMLElement): void {
     smsg.textContent = '';
     partial.textContent = 'Загружаю модель распознавания (около 45 МБ, один раз)…';
     const found: string[] = [];
+    const hesitations: number[] = [];
     let words = 0;
+    let t0 = 0;
     const draw = (done: boolean) => {
       const rows = tally(found).map(r => `<tr><td>${r.word}</td><td>${r.count}</td></tr>`).join('');
       table.innerHTML = `<table><tr><th>Слово</th><th>Найдено</th></tr>${rows}
         <tr><td><b>Всего паразитов</b></td><td><b>${found.length}</b></td></tr></table>
-        <p class="muted">Распознано слов: ${words}. ${done ? 'Готово.' : 'Идёт распознавание…'}</p>`;
+        <p class="muted">Распознано слов: ${words}. ${done ? 'Готово.' : 'Идёт распознавание…'}</p>
+        ${hesitations.length ? `<p class="muted">«э-э» по звуку, время от начала записи: ${hesitations.map(clock).join(', ')}</p>` : ''}`;
     };
     try {
+      const cfg = await getConfig();
       const src = await openFileSource(f);
+      src.pause(); // не терять начало записи, пока грузится модель
       const tap = await startAudioTap(src.audioStream);
-      const asr = await createAsr(appBase() + 'models/vosk-ru.tar.gz', tap.sampleRate, DEFAULT_CONFIG.asr);
+      const asr = await createAsr(appBase() + 'models/vosk-ru.tar.gz', tap.sampleRate, cfg.asr);
+      const hes = new HesitationDetector(cfg, tap.sampleRate);
+      tap.onFrame((fr, t) => {
+        const h = hes.push(fr, t);
+        if (h !== null) { found.push('э-э (по звуку)'); hesitations.push(h - t0); draw(false); }
+      });
       tap.onBatch(b => asr.accept(b));
       asr.onPartial(t => { partial.textContent = t; });
       asr.onFinal(ws => {
         words += ws.length;
-        found.push(...findFillers(ws.map(w => normalize(w.word)[0] ?? ''), DEFAULT_CONFIG.fillers).map(h => h.word));
+        found.push(...findFillers(ws.map(w => normalize(w.word)[0] ?? ''), cfg.fillers).map(h => h.word));
         draw(false);
       });
+      t0 = performance.now();
+      src.resume();
       draw(false);
       src.onEnded(() => {
         void asr.stop().then(() => { tap.stop(); src.stop(); partial.textContent = ''; draw(true); go.disabled = false; });

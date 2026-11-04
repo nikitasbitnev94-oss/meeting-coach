@@ -22,6 +22,8 @@ export interface Session {
   /** Подключить заново открытое окно подсказок. */
   reattach(pip: PipWindow): void;
   onPipClosed(cb: () => void): void;
+  /** Модель речи загрузилась или не загрузилась. Режим файла ждёт этого, чтобы не терять начало записи. */
+  speechSettled: Promise<void>;
 }
 
 export interface SessionOptions {
@@ -78,7 +80,7 @@ export async function startSession(o: SessionOptions): Promise<Session> {
 
   let asr: Asr | null = null;
   let speech: SpeechState = 'loading';
-  void createAsr(base + 'models/vosk-ru.tar.gz', tap.sampleRate, config.asr).then(
+  const speechSettled = createAsr(base + 'models/vosk-ru.tar.gz', tap.sampleRate, config.asr).then(
     a => {
       if (stopping) { void a.stop(); return; }
       asr = a;
@@ -158,6 +160,7 @@ export async function startSession(o: SessionOptions): Promise<Session> {
       watchClose(p);
     },
     onPipClosed(cb) { closedCbs.push(cb); },
+    speechSettled,
     stop() {
       stopped ??= (async () => {
         stopping = true;
