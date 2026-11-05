@@ -7,26 +7,32 @@ const B: Baseline = { blendshapes: {}, gazeYawDeg: 0, gazePitchDeg: 0, activityN
 const noHands: HandFrame = { hands: [] };
 const sig = (bs: Record<string, number>) => computeFrameSignals(face(bs), noHands, B, DEFAULT_CONFIG);
 
-// Пороги по записи мимики пользователя 04.11: спокойное лицо — брови 0,23–0,50, хмурость — 0,57–0,72.
-test('хмурость: брови ниже 0,55', () => {
-  expect(sig({ browDownLeft: .6, browDownRight: .6 }).frown).toBe(true);
-  expect(sig({ browDownLeft: .5, browDownRight: .5 }).frown).toBe(false);
+// Брови — от «спокойного уровня» этой встречи: по двум записям мимики спокойные брови 0,12–0,19 в один день и 0,23–0,50 в другой.
+const sigL = (bs: Record<string, number>, level: number) => computeFrameSignals(face(bs), noHands, B, DEFAULT_CONFIG, level);
+test('хмурость: брови на 0,25 выше спокойного уровня', () => {
+  expect(sigL({ browDownLeft: .45, browDownRight: .45 }, .15).frown).toBe(true);
+  expect(sigL({ browDownLeft: .35, browDownRight: .35 }, .15).frown).toBe(false);
+  expect(sigL({ browDownLeft: .45, browDownRight: .45 }, .3).frown).toBe(false);
 });
-test('хмурость не зависит от калибровки: спокойные брови 0,45 при норме 0,15 — не хмурость', () => {
-  const b = { ...B, blendshapes: { browDownLeft: .15, browDownRight: .15 } };
-  expect(computeFrameSignals(face({ browDownLeft: .45, browDownRight: .45 }), noHands, b, DEFAULT_CONFIG).frown).toBe(false);
+test('хмурость не засчитывается при улыбке — это скепсис или смех', () => {
+  expect(sigL({ browDownLeft: .6, browDownRight: .6, mouthSmileLeft: .6, mouthSmileRight: .6 }, .15).frown).toBe(false);
 });
-test('раздражение: губы трубочкой при опущенных бровях', () => {
-  expect(sig({ browDownLeft: .4, browDownRight: .4, mouthPucker: .5 }).irritation).toBe(true);
-  expect(sig({ browDownLeft: .1, browDownRight: .1, mouthPucker: .5 }).irritation).toBe(false);
+test('без уровня встречи — уровень из калибровки', () => {
+  const b = { ...B, blendshapes: { browDownLeft: .3, browDownRight: .3 } };
+  expect(computeFrameSignals(face({ browDownLeft: .5, browDownRight: .5 }), noHands, b, DEFAULT_CONFIG).frown).toBe(false);
+  expect(computeFrameSignals(face({ browDownLeft: .6, browDownRight: .6 }), noHands, b, DEFAULT_CONFIG).frown).toBe(true);
+});
+test('раздражение: губы трубочкой при бровях выше спокойного уровня', () => {
+  expect(sig({ browDownLeft: .2, browDownRight: .2, mouthPucker: .5 }).irritation).toBe(true);
+  expect(sigL({ browDownLeft: .2, browDownRight: .2, mouthPucker: .5 }, .2).irritation).toBe(false);
 });
 test('раздражение: сжатые губы при опущенных бровях', () => {
   expect(sig({ browDownLeft: .3, browDownRight: .3, mouthPressLeft: .3, mouthPressRight: .3 }).irritation).toBe(true);
 });
-test('скепсис: брови вниз и полуулыбка', () => {
-  expect(sig({ browDownLeft: .55, browDownRight: .55, mouthSmileLeft: .45, mouthSmileRight: .45 }).skepticism).toBe(true);
-  expect(sig({ browDownLeft: .55, browDownRight: .55, mouthSmileLeft: .85, mouthSmileRight: .85 }).skepticism).toBe(false);
-  expect(sig({ browDownLeft: .3, browDownRight: .3, mouthSmileLeft: .45, mouthSmileRight: .45 }).skepticism).toBe(false);
+test('скепсис: брови на 0,2 выше спокойного уровня и полуулыбка', () => {
+  expect(sigL({ browDownLeft: .45, browDownRight: .45, mouthSmileLeft: .45, mouthSmileRight: .45 }, .2).skepticism).toBe(true);
+  expect(sigL({ browDownLeft: .45, browDownRight: .45, mouthSmileLeft: .85, mouthSmileRight: .85 }, .2).skepticism).toBe(false);
+  expect(sigL({ browDownLeft: .3, browDownRight: .3, mouthSmileLeft: .45, mouthSmileRight: .45 }, .2).skepticism).toBe(false);
 });
 test('скепсис: одна бровь', () => expect(sig({ browOuterUpLeft: .4 }).skepticism).toBe(true));
 test('асимметрия считается от нормы', () => {
@@ -105,4 +111,8 @@ describe('правки 05.11', () => {
   test('пальцы на волосах сверху — касание', () => expect(handNear(handWith({ x: .5, y: .15 }), box, DEFAULT_CONFIG)).toBe(true));
   test('пальцы на шее под подбородком — касание', () => expect(handNear(handWith({ x: .5, y: .75 }), box, DEFAULT_CONFIG)).toBe(true));
   test('под подбородком, но сбоку от шеи — жест у груди, не касание', () => expect(handNear(handWith({ x: .63, y: .75 }), box, DEFAULT_CONFIG)).toBe(false));
+});
+
+test('раздражение не засчитывается при улыбке: улыбка сама сжимает губы', () => {
+  expect(sig({ browDownLeft: .2, browDownRight: .2, mouthPressLeft: .3, mouthPressRight: .3, mouthSmileLeft: .8, mouthSmileRight: .8 }).irritation).toBe(false);
 });

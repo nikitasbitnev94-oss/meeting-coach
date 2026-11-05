@@ -36,8 +36,8 @@ export function pitch(f: Float32Array, sampleRate: number): { hz: number; corr: 
 
 export interface Segment { start: number; end: number } // мс
 
-/** Скользящая медиана громкости звонких кадров — «обычная громкость речи». */
-class RollingMedian {
+/** Скользящая медиана за окно времени (громкость речи, уровень бровей). */
+export class RollingMedian {
   private items: { t: number; v: number }[] = [];
   private sorted: number[] = [];
   constructor(private windowMs: number) {}

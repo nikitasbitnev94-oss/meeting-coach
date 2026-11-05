@@ -83,3 +83,23 @@ describe('норма активности мимики', () => {
     expect(wiggle(w, 0, 30000, 0.4, 'jawOpen').expressivityRatio).toBe(0);
   });
 });
+
+import { BrowLevel } from '../../src/vision/window';
+describe('спокойный уровень бровей встречи', () => {
+  test('первые 30 с — уровень калибровки', () => {
+    const b = new BrowLevel(DEFAULT_CONFIG, 0.3);
+    for (let t = 0; t < 20000; t += 100) b.push(face({ browDownLeft: .1, browDownRight: .1 }), t);
+    expect(b.level()).toBe(0.3);
+  });
+  test('дальше — медиана бровей за 3 минуты без улыбки и удивления', () => {
+    const b = new BrowLevel(DEFAULT_CONFIG, 0.3);
+    for (let t = 0; t < 60000; t += 100) b.push(face({ browDownLeft: .12, browDownRight: .12 }), t);
+    for (let t = 60000; t < 70000; t += 100) b.push(face({ browDownLeft: .0, browDownRight: .0, mouthSmileLeft: .8, mouthSmileRight: .8 }), t);
+    expect(b.level()).toBeCloseTo(0.12);
+  });
+  test('хмурость дольше половины окна сдвигает уровень, но окно ограничено 3 минутами', () => {
+    const b = new BrowLevel(DEFAULT_CONFIG, 0.3);
+    for (let t = 0; t < 600000; t += 100) b.push(face({ browDownLeft: .2, browDownRight: .2 }), t);
+    expect((b as any).median.items.length).toBeLessThanOrEqual(1801);
+  });
+});

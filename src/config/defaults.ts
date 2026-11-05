@@ -10,7 +10,7 @@ export const DEFAULT_CONFIG = {
     'значит', 'получается', 'собственно', 'просто', 'наверно', 'наверное'],
   enabled: {
     hands: true, smirk: true, irritation: true, skepticism: true, surprise: true, cheer: true,
-    frown: true, expressive: true, stone: true, gaze: true, lipBite: true, hesitation: true, filler: true, fillerBurst: true,
+    frown: true, expressive: true, stone: true, gaze: true, lipBite: false, hesitation: true, filler: true, fillerBurst: true,
   } as Record<HintId, boolean>,
   texts: {
     hands: 'руки от лица', smirk: 'усмешка', irritation: 'раздражение', skepticism: 'скепсис',
@@ -28,8 +28,10 @@ export const DEFAULT_CONFIG = {
   },
   face: {
     // Брови — по уровню, а не от калибровки: спокойные брови у пользователя гуляют 0,23–0,50 (запись мимики 04.11).
-    frownLevel: 0.55, irritationBrowLevel: 0.3, irritationPucker: 0.35, irritationPressDelta: 0.2,
-    skepticismBrowLevel: 0.45, skepticismSmileMin: 0.2, skepticismSmileMax: 0.7, skepticismAsym: 0.25,
+    // Брови — от «спокойного уровня» встречи (медиана за 3 мин): в разные дни он 0,12–0,19 и 0,23–0,50 (записи мимики 04–05.11).
+    frownDelta: 0.25, frownMaxSmile: 0.5, irritationBrowDelta: 0.05, irritationPucker: 0.35, irritationPressDelta: 0.2,
+    skepticismBrowDelta: 0.2, skepticismSmileMin: 0.2, skepticismSmileMax: 0.7, skepticismAsym: 0.25,
+    browLevelWindowMs: 180000, browLevelMinMs: 30000,
     surpriseBrowDelta: 0.3, surpriseJawDelta: 0.25, lipBiteRoll: 0.35, // губы — на глаз, уточнить по записи мимики
     smirkAsym: 0.25, smirkMinSmile: 0.3, cheerSmile: 0.6,
     expressiveRatio: 2, expressiveWindowMs: 30000, activityNormDefault: 0, expressiveMinSamples: 4,

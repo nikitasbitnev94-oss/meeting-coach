@@ -7,12 +7,12 @@ import { esc } from './report';
 const HINT_LABEL: Record<HintId, string> = {
   hands: 'Руки у лица', smirk: 'Усмешка', irritation: 'Раздражение', skepticism: 'Скепсис',
   surprise: 'Удивление', cheer: 'Излишняя весёлость', frown: 'Хмурость', expressive: 'Активная мимика',
-  stone: 'Каменное лицо', gaze: 'Взгляд мимо камеры', lipBite: 'Прикусывание губ', hesitation: 'Частые «э-э» (3 и больше за минуту)', filler: 'Слово-паразит', fillerBurst: 'Частые паразиты (3 и больше за минуту)',
+  stone: 'Каменное лицо', gaze: 'Взгляд мимо камеры', lipBite: 'Прикусывание губ (не распознаётся: на записях читается как улыбка)', hesitation: 'Частые «э-э» (3 и больше за минуту)', filler: 'Слово-паразит', fillerBurst: 'Частые паразиты (3 и больше за минуту)',
 };
 
 const FACE_LABEL: Record<string, string> = {
-  frownLevel: 'Хмурость: уровень опущенных бровей', irritationBrowLevel: 'Раздражение: брови', irritationPucker: 'Раздражение: губы трубочкой',
-  irritationPressDelta: 'Раздражение: сжатые губы', skepticismBrowLevel: 'Скепсис: брови', skepticismSmileMin: 'Скепсис: полуулыбка от',
+  frownDelta: 'Хмурость: брови ниже обычного на', frownMaxSmile: 'Хмурость: не при улыбке сильнее', irritationBrowDelta: 'Раздражение: брови ниже обычного на',
+  irritationPucker: 'Раздражение: губы трубочкой', irritationPressDelta: 'Раздражение: сжатые губы', skepticismBrowDelta: 'Скепсис: брови ниже обычного на', skepticismSmileMin: 'Скепсис: полуулыбка от',
   skepticismSmileMax: 'Скепсис: полуулыбка до', skepticismAsym: 'Скепсис: разница бровей', surpriseBrowDelta: 'Удивление: брови',
   surpriseJawDelta: 'Удивление: открытый рот', smirkAsym: 'Усмешка: разница уголков рта', smirkMinSmile: 'Усмешка: минимальная улыбка',
   cheerSmile: 'Весёлость: ширина улыбки', expressiveRatio: 'Активная мимика: во сколько раз выше нормы',

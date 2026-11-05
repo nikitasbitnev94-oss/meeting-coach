@@ -17,7 +17,7 @@ import { createHandTracker, type HandTracker } from '../vision/handTracker';
 import { everyMs, startAnalysisLoop, startIntervalLoop } from '../vision/loop';
 import { ACTIVITY_VERSION, effectiveActivityNorm } from '../vision/calibration';
 import { computeFrameSignals, HandHold, handNear } from '../vision/signals';
-import { ExpressionWindow } from '../vision/window';
+import { BrowLevel, ExpressionWindow } from '../vision/window';
 import { buildMeeting, freshHits, LastFiller, pickStatus, type SpeechState } from './meeting';
 
 export interface Session {
@@ -64,6 +64,7 @@ export async function startSession(o: SessionOptions): Promise<Session> {
   [faceR, handR].forEach(r => { if (r.status === 'rejected') console.error(r.reason); });
 
   const engine = new RuleEngine(config);
+  const browLevel = new BrowLevel(config, ((baseline.blendshapes.browDownLeft ?? 0) + (baseline.blendshapes.browDownRight ?? 0)) / 2);
   const window_ = new ExpressionWindow(config, effectiveActivityNorm(baseline) || config.face.activityNormDefault);
   const tracker = new FillerTracker(config.fillers);
   const vad = new Vad(config);
@@ -150,8 +151,9 @@ export async function startSession(o: SessionOptions): Promise<Session> {
     // Лицо анализируется и при выключенной камере: по движению рта суфлёр отличает свою речь от чужой.
     const frame = face?.detect(video, t) ?? null;
     if (hands && !cameraOff && handDue(t)) lastHands = hands.detect(video, t);
+    if (frame) browLevel.push(frame, t);
     const vision = frame && !cameraOff
-      ? { ...computeFrameSignals(frame, lastHands, baseline, config), ...window_.push(frame, t) }
+      ? { ...computeFrameSignals(frame, lastHands, baseline, config, browLevel.level()), ...window_.push(frame, t) }
       : null;
     const hits = freshHits(pending, t, STALE_HIT_MS);
     pending = [];

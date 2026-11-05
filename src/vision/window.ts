@@ -1,4 +1,5 @@
 import type { Config } from '../config/defaults';
+import { RollingMedian } from '../audio/hesitation';
 import type { FaceFrame } from '../types';
 
 /** Брови и уголки рта. Открывание рта и сжатие губ — это артикуляция, при речи они двигаются всегда. */
@@ -92,4 +93,32 @@ function median(xs: number[]): number {
   const s = [...xs].sort((a, b) => a - b);
   const mid = Math.floor(s.length / 2);
   return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+}
+
+/**
+ * «Спокойный уровень» бровей встречи: медиана опущенности бровей за browLevelWindowMs по кадрам без улыбки и удивления.
+ * Первые browLevelMinMs — уровень из калибровки.
+ */
+export class BrowLevel {
+  private median: RollingMedian;
+  private firstT: number | null = null;
+  private lastT = 0;
+
+  constructor(private cfg: Config, private calibrated: number) {
+    this.median = new RollingMedian(cfg.face.browLevelWindowMs);
+  }
+
+  push(f: FaceFrame, tMs: number): void {
+    const v = (k: string) => f.blendshapes[k] ?? 0;
+    this.firstT ??= tMs;
+    this.lastT = tMs;
+    this.median.prune(tMs);
+    const smile = (v('mouthSmileLeft') + v('mouthSmileRight')) / 2;
+    if (smile < 0.3 && v('browInnerUp') < 0.3) this.median.add(tMs, (v('browDownLeft') + v('browDownRight')) / 2);
+  }
+
+  level(): number {
+    if (this.firstT === null || this.lastT - this.firstT < this.cfg.face.browLevelMinMs) return this.calibrated;
+    return this.median.value(this.calibrated);
+  }
 }

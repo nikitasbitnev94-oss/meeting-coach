@@ -235,8 +235,9 @@ describe('правки 05.11', () => {
     expect(run(e, 3000, 3100, 100, { vision: V({ expressivityRatio: 3 }) }).hint).toBeNull();
     expect(run(e, 3200, 20000, 100, { vision: V({ expressivityRatio: 3 }) }).hint).toBeNull(); // пауза минута
   });
-  test('прикусывание губ — подсказка через 1,5 с', () => {
-    const e = new RuleEngine(DEFAULT_CONFIG);
+  test('прикусывание губ (если включено в настройках) — подсказка через 1,5 с', () => {
+    const cfg = structuredClone(DEFAULT_CONFIG); cfg.enabled.lipBite = true;
+    const e = new RuleEngine(cfg);
     expect(run(e, 0, 1400, 100, { vision: V({ lipBite: true }) }).hint).toBeNull();
     expect(run(e, 1500, 1500, 100, { vision: V({ lipBite: true }) }).hint).toEqual({ id: 'lipBite', text: 'не кусай губы' });
   });

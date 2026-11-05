@@ -21,7 +21,11 @@ export function neckZone(box: Box, cfg: Config): Box {
 /** Кончики пальцев MediaPipe. Касание — это пальцы, а не запястье или ладонь у подбородка при жесте. */
 const FINGERTIPS = [4, 8, 12, 16, 20];
 
-export function computeFrameSignals(f: FaceFrame, h: HandFrame, b: Baseline, cfg: Config): FrameSignals {
+/**
+ * Сигналы кадра. browLevel — «спокойный уровень» бровей этой встречи (BrowLevel);
+ * без него — уровень из калибровки.
+ */
+export function computeFrameSignals(f: FaceFrame, h: HandFrame, b: Baseline, cfg: Config, browLevel?: number): FrameSignals {
   const v = (k: string) => f.blendshapes[k] ?? 0;
   const v0 = (k: string) => b.blendshapes[k] ?? 0;
   const pair = (k: string) => (v(k + 'Left') + v(k + 'Right')) / 2;
@@ -33,15 +37,17 @@ export function computeFrameSignals(f: FaceFrame, h: HandFrame, b: Baseline, cfg
   const c = cfg.face;
 
   const g = gazeAngles(f, cfg);
+  const brow = pair('browDown');
+  const level = browLevel ?? pair0('browDown');
 
   return {
     gazeOnCamera: Math.abs(g.yawDeg - b.gazeYawDeg) <= cfg.gaze.maxYawDeg
       && Math.abs(g.pitchDeg - b.gazePitchDeg) <= cfg.gaze.maxPitchDeg,
-    frown: pair('browDown') >= c.frownLevel,
-    irritation: pair('browDown') >= c.irritationBrowLevel
+    frown: brow - level >= c.frownDelta && pair('mouthSmile') < c.frownMaxSmile,
+    irritation: brow - level >= c.irritationBrowDelta && pair('mouthSmile') < c.frownMaxSmile
       && (v('mouthPucker') >= c.irritationPucker || delta('mouthPress') >= c.irritationPressDelta),
     skepticism: asym('browOuterUp') >= c.skepticismAsym
-      || (pair('browDown') >= c.skepticismBrowLevel && pair('mouthSmile') >= c.skepticismSmileMin && pair('mouthSmile') <= c.skepticismSmileMax),
+      || (brow - level >= c.skepticismBrowDelta && pair('mouthSmile') >= c.skepticismSmileMin && pair('mouthSmile') <= c.skepticismSmileMax),
     surprise: deltaOne('browInnerUp') >= c.surpriseBrowDelta && deltaOne('jawOpen') >= c.surpriseJawDelta,
     smirk: asym('mouthSmile') >= c.smirkAsym && Math.max(v('mouthSmileLeft'), v('mouthSmileRight')) >= c.smirkMinSmile,
     cheer: Math.min(v('mouthSmileLeft'), v('mouthSmileRight')) >= c.cheerSmile,
