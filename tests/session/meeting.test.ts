@@ -49,3 +49,8 @@ test('«э-э» в строку слова не попадает', () => {
   l.set('вот', 0); l.set('э-э', 100);
   expect(l.get(200)).toBe('вот');
 });
+
+test('камера выключена в созвоне — статус важнее остальных', () => {
+  expect(pickStatus('face-lost', true, 'ok', true)).toBe('camera-off');
+  expect(pickStatus('ok', true, 'ok', false)).toBe('ok');
+});

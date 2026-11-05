@@ -5,7 +5,7 @@ import type { EventType } from '../types';
 const LABEL: Partial<Record<EventType, string>> = {
   hands: 'Руки у лица', smirk: 'Усмешка', irritation: 'Раздражение', skepticism: 'Скепсис',
   surprise: 'Удивление', cheer: 'Излишняя весёлость', frown: 'Хмурость',
-  expressive: 'Активная мимика', stone: 'Каменное лицо',
+  expressive: 'Активная мимика', stone: 'Каменное лицо', lipBite: 'Прикусывание губ',
 };
 
 export function esc(s: string): string {

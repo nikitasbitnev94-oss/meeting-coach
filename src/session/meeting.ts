@@ -4,7 +4,8 @@ import type { PipStatus } from '../ui/pip';
 export type SpeechState = 'loading' | 'ok' | 'failed';
 
 /** Статус в окне: нет модели лица → лицо не в кадре → состояние модели речи → всё хорошо. */
-export function pickStatus(engine: 'ok' | 'face-lost', faceOk: boolean, speech: SpeechState): PipStatus {
+export function pickStatus(engine: 'ok' | 'face-lost', faceOk: boolean, speech: SpeechState, cameraOff = false): PipStatus {
+  if (cameraOff) return 'camera-off';
   if (!faceOk) return 'no-camera-model';
   if (engine === 'face-lost') return 'face-lost';
   if (speech === 'failed') return 'no-speech-model';

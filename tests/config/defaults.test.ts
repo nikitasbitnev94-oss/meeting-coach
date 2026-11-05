@@ -1,7 +1,7 @@
 import { DEFAULT_CONFIG, HINT_PRIORITY } from '../../src/config/defaults';
 
 test('приоритеты: порядок из спеки, без повторов', () => {
-  expect(HINT_PRIORITY).toEqual(['hands', 'smirk', 'irritation', 'skepticism', 'surprise',
+  expect(HINT_PRIORITY).toEqual(['hands', 'smirk', 'irritation', 'skepticism', 'lipBite', 'surprise',
     'cheer', 'frown', 'expressive', 'stone', 'gaze', 'hesitation', 'fillerBurst', 'filler']);
 });
 

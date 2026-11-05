@@ -20,7 +20,7 @@ test.skipIf(!path)('правила мимики на записи пользов
       { hands: [] }, B, DEFAULT_CONFIG);
     counts[r[0]] = (counts[r[0]] ?? 0) + 1;
     share[r[0]] ??= {};
-    for (const k of ['frown', 'irritation', 'skepticism', 'cheer', 'surprise'] as (keyof FrameSignals)[]) {
+    for (const k of ['frown', 'irritation', 'skepticism', 'cheer', 'surprise', 'lipBite'] as (keyof FrameSignals)[]) {
       share[r[0]][k] = (share[r[0]][k] ?? 0) + (s[k] ? 1 : 0);
     }
   }
@@ -30,6 +30,6 @@ test.skipIf(!path)('правила мимики на записи пользов
     expect(pct(step, rule)).toBeGreaterThanOrEqual(0.5);
   }
   for (const step of ['neutral', 'neutral2', 'talk']) {
-    for (const rule of ['frown', 'irritation', 'skepticism', 'cheer', 'surprise']) expect(pct(step, rule)).toBeLessThanOrEqual(0.1);
+    for (const rule of ['frown', 'irritation', 'skepticism', 'cheer', 'surprise', 'lipBite']) expect(pct(step, rule)).toBeLessThanOrEqual(0.1);
   }
 });

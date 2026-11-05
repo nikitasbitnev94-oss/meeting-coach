@@ -58,10 +58,10 @@ describe('руки', () => {
   const box = { x: .4, y: .3, w: .2, h: .3 };
   const hand = (p: { x: number; y: number }) =>
     computeFrameSignals(face({}, { box }), { hands: [[p]] }, B, DEFAULT_CONFIG).handNearFace;
-  test('зона лица с волосами, ушами и шеей', () => {
+  test('зона лица с волосами и ушами (шея — отдельная узкая зона)', () => {
     const z = handZone(box, DEFAULT_CONFIG);
-    expect(z.x).toBeCloseTo(.34); expect(z.y).toBeCloseTo(.12);
-    expect(z.w).toBeCloseTo(.32); expect(z.h).toBeCloseTo(.675);
+    expect(z.x).toBeCloseTo(.37); expect(z.y).toBeCloseTo(.12);
+    expect(z.w).toBeCloseTo(.26); expect(z.h).toBeCloseTo(.48);
   });
   test('волосы', () => expect(hand({ x: .5, y: .2 })).toBe(true));
   test('шея', () => expect(hand({ x: .5, y: .7 })).toBe(true));
@@ -81,7 +81,28 @@ describe('руки: устойчивость', () => {
   test('handNear по рамке лица без самого кадра лица', () => {
     const box = { x: .4, y: .3, w: .2, h: .3 };
     expect(handNear({ hands: [[{ x: .5, y: .15 }]] }, box, DEFAULT_CONFIG)).toBe(true);   // макушка, 50% выше лба
-    expect(handNear({ hands: [[{ x: .65, y: .35 }]] }, box, DEFAULT_CONFIG)).toBe(true);  // волосы сбоку, 25% ширины
+    expect(handNear({ hands: [[{ x: .62, y: .35 }]] }, box, DEFAULT_CONFIG)).toBe(true);  // волосы сбоку, 10% ширины
     expect(handNear({ hands: [] }, box, DEFAULT_CONFIG)).toBe(false);
   });
+});
+
+describe('правки 05.11', () => {
+  test('прикусывание губ: нижняя или верхняя губа втянута', () => {
+    expect(sig({ mouthRollLower: .45 }).lipBite).toBe(true);
+    expect(sig({ mouthRollUpper: .45 }).lipBite).toBe(true);
+    expect(sig({ mouthRollLower: .05 }).lipBite).toBe(false);
+  });
+  const box = { x: .4, y: .3, w: .2, h: .3 };
+  // точки руки MediaPipe: 0 запястье, 4/8/12/16/20 — кончики пальцев
+  const handWith = (tip: { x: number; y: number }, other = { x: .9, y: .9 }) =>
+    ({ hands: [Array.from({ length: 21 }, (_, i) => ([4, 8, 12, 16, 20].includes(i) ? tip : other))] });
+  test('считаются только кончики пальцев: запястье у подбородка при жесте — не касание', () => {
+    const h = { hands: [Array.from({ length: 21 }, (_, i) => (i === 0 ? { x: .5, y: .65 } : { x: .5, y: .95 }))] };
+    expect(handNear(h, box, DEFAULT_CONFIG)).toBe(false);
+  });
+  test('пальцы на щеке — касание', () => expect(handNear(handWith({ x: .58, y: .45 }), box, DEFAULT_CONFIG)).toBe(true));
+  test('пальцы сбоку от головы на 25% ширины — жест, не касание', () => expect(handNear(handWith({ x: .65, y: .4 }), box, DEFAULT_CONFIG)).toBe(false));
+  test('пальцы на волосах сверху — касание', () => expect(handNear(handWith({ x: .5, y: .15 }), box, DEFAULT_CONFIG)).toBe(true));
+  test('пальцы на шее под подбородком — касание', () => expect(handNear(handWith({ x: .5, y: .75 }), box, DEFAULT_CONFIG)).toBe(true));
+  test('под подбородком, но сбоку от шеи — жест у груди, не касание', () => expect(handNear(handWith({ x: .63, y: .75 }), box, DEFAULT_CONFIG)).toBe(false));
 });

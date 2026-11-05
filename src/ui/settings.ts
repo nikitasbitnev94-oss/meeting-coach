@@ -7,7 +7,7 @@ import { esc } from './report';
 const HINT_LABEL: Record<HintId, string> = {
   hands: 'Руки у лица', smirk: 'Усмешка', irritation: 'Раздражение', skepticism: 'Скепсис',
   surprise: 'Удивление', cheer: 'Излишняя весёлость', frown: 'Хмурость', expressive: 'Активная мимика',
-  stone: 'Каменное лицо', gaze: 'Взгляд мимо камеры', hesitation: 'Частые «э-э» (3 и больше за минуту)', filler: 'Слово-паразит', fillerBurst: 'Частые паразиты (3 и больше за минуту)',
+  stone: 'Каменное лицо', gaze: 'Взгляд мимо камеры', lipBite: 'Прикусывание губ', hesitation: 'Частые «э-э» (3 и больше за минуту)', filler: 'Слово-паразит', fillerBurst: 'Частые паразиты (3 и больше за минуту)',
 };
 
 const FACE_LABEL: Record<string, string> = {

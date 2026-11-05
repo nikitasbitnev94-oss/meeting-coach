@@ -84,8 +84,20 @@ function waitForPipClick(root: HTMLElement): Promise<PipWindow> {
 function showRunning(root: HTMLElement, session: Session, pip: PipWindow, source: MediaHandle): void {
   root.innerHTML = `<h1>Встреча идёт</h1>
     <p class="muted">Подсказки — в маленьком окне. Эту вкладку можно свернуть.</p>
-    <div class="row"><button class="primary" id="end">Завершить</button><button id="reopen" hidden>Открыть окно подсказок</button></div>`;
+    <p class="muted">Выключили камеру в созвоне — нажмите «Камера выкл»: подсказки по лицу встанут на паузу, по речи — продолжатся.</p>
+    <div class="row"><button class="primary" id="end">Завершить</button><button id="cam"></button><button id="reopen" hidden>Открыть окно подсказок</button></div>`;
   const reopen = root.querySelector<HTMLButtonElement>('#reopen')!;
+  // Выключенную камеру в созвоне суфлёр сам не видит: он не имеет доступа к вкладке созвона.
+  let cameraOff = false;
+  const camButtons: HTMLButtonElement[] = [root.querySelector<HTMLButtonElement>('#cam')!];
+  const camLabel = () => (cameraOff ? 'Камера вкл' : 'Камера выкл');
+  const toggleCamera = () => {
+    cameraOff = !cameraOff;
+    session.setCameraOff(cameraOff);
+    camButtons.forEach(b => { b.textContent = camLabel(); });
+  };
+  camButtons[0].textContent = camLabel();
+  camButtons[0].onclick = toggleCamera;
   const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
   window.addEventListener('beforeunload', warn);
   const finish = async () => {
@@ -93,7 +105,10 @@ function showRunning(root: HTMLElement, session: Session, pip: PipWindow, source
     window.removeEventListener('beforeunload', warn);
     navigate(`#/report/${encodeURIComponent(m.id)}`);
   };
-  const addEnd = (p: PipWindow) => p.addButton('Завершить', () => void finish());
+  const addEnd = (p: PipWindow) => {
+    p.addButton('Завершить', () => void finish());
+    camButtons.push(p.addButton(camLabel(), toggleCamera));
+  };
   addEnd(pip);
   root.querySelector<HTMLButtonElement>('#end')!.onclick = () => void finish();
   session.onPipClosed(() => { reopen.hidden = false; });

@@ -18,3 +18,7 @@ test('статусы моделей', () => {
   expect(s('no-speech-model')).toBe('анализ речи отключён');
   expect(s('speech-loading')).toBe('распознавание речи загружается');
 });
+
+test('статус «камера выключена»', () => {
+  expect(formatPipState({ hint: null, fillers: 0, lastFiller: null, status: 'camera-off' }).statusText).toBe('камера выключена: подсказки по лицу на паузе');
+});

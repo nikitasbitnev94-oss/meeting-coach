@@ -10,7 +10,7 @@ export interface EngineOutput { hint: Hint | null; closed: CoachEvent[]; status:
 
 export const HESITATION_WORD = 'э-э';
 
-const RULES: RuleId[] = ['hands', 'smirk', 'irritation', 'skepticism', 'surprise', 'cheer', 'frown', 'expressive', 'stone', 'gaze'];
+const RULES: RuleId[] = ['hands', 'smirk', 'irritation', 'skepticism', 'lipBite', 'surprise', 'cheer', 'frown', 'expressive', 'stone', 'gaze'];
 const rank = (id: HintId) => HINT_PRIORITY.indexOf(id);
 
 /** Сигналы → подсказка в окне и события для отчёта. Чистая логика, время приходит извне. */
@@ -83,7 +83,14 @@ export class RuleEngine {
     const eligible = candidates.filter(c => c.id === this.current?.hint.id || !this.inCooldown(c.id, t));
     eligible.sort((a, b) => rank(a.id) - rank(b.id));
     const best = eligible[0] ?? null;
-    const cur = this.current;
+    let cur = this.current;
+    // «Мимика спокойнее» держится по окну 30 с и могла висеть до полуминуты: показывается не дольше expressiveMaxShowMs.
+    if (cur && cur.hint.id === 'expressive' && t - cur.since >= d.expressiveMaxShowMs) {
+      this.current = cur = null;
+      const next = eligible.find(c => c.id !== 'expressive');
+      if (next) this.show(next, t);
+      return { hint: next ?? null, closed, status, gazeShare: this.share() };
+    }
 
     if (!cur) {
       if (best) this.show(best, t);
@@ -132,6 +139,7 @@ export class RuleEngine {
       case 'expressive': return v.expressivityRatio >= f.expressiveRatio;
       case 'stone': return v.stillMs >= f.stoneMs && !speaking;
       case 'gaze': return !v.gazeOnCamera && speaking;
+      case 'lipBite': return v.lipBite;
     }
   }
 

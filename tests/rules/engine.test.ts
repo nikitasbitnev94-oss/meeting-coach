@@ -4,7 +4,7 @@ import type { CoachEvent, VisionSignals } from '../../src/types';
 
 const V = (over: Partial<VisionSignals> = {}): VisionSignals => ({
   gazeOnCamera: true, frown: false, irritation: false, skepticism: false, surprise: false,
-  smirk: false, cheer: false, handNearFace: false, expressivityRatio: 1, stillMs: 0, ...over,
+  smirk: false, cheer: false, handNearFace: false, lipBite: false, expressivityRatio: 1, stillMs: 0, ...over,
 });
 
 function run(e: RuleEngine, from: number, to: number, step: number,
@@ -226,4 +226,18 @@ test('мимика: пауза между показами по-прежнему
   run(e, 0, 3500, 100, { vision: V({ frown: true }) });
   run(e, 3600, 8000, 100, { vision: V() });
   expect(run(e, 8100, 11100, 100, { vision: V({ frown: true }) }).hint).toBeNull();
+});
+
+describe('правки 05.11', () => {
+  test('«мимика спокойнее» висит не дольше 3 с, даже если активность держится', () => {
+    const e = new RuleEngine(DEFAULT_CONFIG);
+    expect(run(e, 0, 2900, 100, { vision: V({ expressivityRatio: 3 }) }).hint?.id).toBe('expressive');
+    expect(run(e, 3000, 3100, 100, { vision: V({ expressivityRatio: 3 }) }).hint).toBeNull();
+    expect(run(e, 3200, 20000, 100, { vision: V({ expressivityRatio: 3 }) }).hint).toBeNull(); // пауза минута
+  });
+  test('прикусывание губ — подсказка через 1,5 с', () => {
+    const e = new RuleEngine(DEFAULT_CONFIG);
+    expect(run(e, 0, 1400, 100, { vision: V({ lipBite: true }) }).hint).toBeNull();
+    expect(run(e, 1500, 1500, 100, { vision: V({ lipBite: true }) }).hint).toEqual({ id: 'lipBite', text: 'не кусай губы' });
+  });
 });

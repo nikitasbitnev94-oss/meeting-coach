@@ -1,5 +1,5 @@
 export type HintId = 'hands' | 'smirk' | 'irritation' | 'skepticism' | 'surprise'
-  | 'cheer' | 'frown' | 'expressive' | 'stone' | 'gaze' | 'hesitation' | 'filler' | 'fillerBurst';
+  | 'cheer' | 'frown' | 'expressive' | 'stone' | 'gaze' | 'lipBite' | 'hesitation' | 'filler' | 'fillerBurst';
 export type EventType = Exclude<HintId, 'fillerBurst' | 'hesitation'>; // 'filler' несёт word, «э-э» — word 'э-э'
 
 export interface Box { x: number; y: number; w: number; h: number } // нормированные 0..1
@@ -19,7 +19,7 @@ export interface Baseline {
 }
 export interface FrameSignals {
   gazeOnCamera: boolean; frown: boolean; irritation: boolean; skepticism: boolean;
-  surprise: boolean; smirk: boolean; cheer: boolean; handNearFace: boolean;
+  surprise: boolean; smirk: boolean; cheer: boolean; handNearFace: boolean; lipBite: boolean;
 }
 export interface VisionSignals extends FrameSignals { expressivityRatio: number; stillMs: number }
 export interface FillerHit { word: string; tMs: number }

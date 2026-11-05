@@ -27,6 +27,8 @@ export interface Session {
   onPipClosed(cb: () => void): void;
   /** Модель речи загрузилась или не загрузилась. Режим файла ждёт этого, чтобы не терять начало записи. */
   speechSettled: Promise<void>;
+  /** Камера в созвоне выключена: подсказки по лицу и рукам на паузе, речь анализируется. */
+  setCameraOff(off: boolean): void;
 }
 
 export interface SessionOptions {
@@ -130,9 +132,11 @@ export async function startSession(o: SessionOptions): Promise<Session> {
   // видео: в окне подсказок и запасное на странице
   let pip: PipWindow | null = o.pip;
   let video = attachVideo(pip.doc, o.source.videoStream);
-  const fallbackVideo = attachVideo(document, o.source.videoStream);
-  const faceDue = everyMs(100);
-  const handDue = everyMs(200);
+  // Запасное видео на странице создаётся, только когда окно подсказок закрыто: второй поток — лишняя нагрузка.
+  let fallbackVideo: HTMLVideoElement | null = null;
+  const faceDue = everyMs(config.perf.faceIntervalMs);
+  const handDue = everyMs(config.perf.handIntervalMs);
+  let cameraOff = false;
   let lastHands: HandFrame = { hands: [] };
   const handHold = new HandHold(config);
   let lastBox: Box | null = null;
@@ -143,9 +147,10 @@ export async function startSession(o: SessionOptions): Promise<Session> {
 
   const tick = (t: number) => {
     if (!faceDue(t)) return;
+    // Лицо анализируется и при выключенной камере: по движению рта суфлёр отличает свою речь от чужой.
     const frame = face?.detect(video, t) ?? null;
-    if (hands && handDue(t)) lastHands = hands.detect(video, t);
-    const vision = frame
+    if (hands && !cameraOff && handDue(t)) lastHands = hands.detect(video, t);
+    const vision = frame && !cameraOff
       ? { ...computeFrameSignals(frame, lastHands, baseline, config), ...window_.push(frame, t) }
       : null;
     const hits = freshHits(pending, t, STALE_HIT_MS);
@@ -155,7 +160,7 @@ export async function startSession(o: SessionOptions): Promise<Session> {
     // Рука может закрыть лицо — тогда зона считается по последней рамке лица (до 3 с).
     if (frame) { lastBox = frame.box; lastBoxT = t; }
     const box = frame?.box ?? (t - lastBoxT <= config.hands.faceBoxMemoryMs ? lastBox : null);
-    const handsNow = handHold.update(box !== null && handNear(lastHands, box, config), t);
+    const handsNow = !cameraOff && handHold.update(box !== null && handNear(lastHands, box, config), t);
     const out = engine.update({ tMs: t, speaking: own.update(speaking, t), vision, fillerHits: hits, hands: handsNow });
     events.push(...out.closed);
     lastHint = out.hint;
@@ -168,7 +173,7 @@ export async function startSession(o: SessionOptions): Promise<Session> {
       hint: lastHint,
       fillers: tracker.total(),
       lastFiller: lastFiller.get(t),
-      status: pickStatus(lastStatus, face !== null, speech),
+      status: pickStatus(lastStatus, face !== null, speech, cameraOff),
     });
   }
 
@@ -177,6 +182,7 @@ export async function startSession(o: SessionOptions): Promise<Session> {
     if (pip !== p || stopping) return;
     pip = null;
     stopLoop();
+    fallbackVideo ??= attachVideo(document, o.source.videoStream);
     video = fallbackVideo;
     // В фоновой вкладке requestAnimationFrame не срабатывает, таймер — срабатывает, хоть и реже.
     stopLoop = startIntervalLoop(tick, FALLBACK_TICK_MS);
@@ -205,6 +211,7 @@ export async function startSession(o: SessionOptions): Promise<Session> {
     },
     onPipClosed(cb) { closedCbs.push(cb); },
     speechSettled,
+    setCameraOff(off) { cameraOff = off; },
     stop() {
       stopped ??= (async () => {
         stopping = true;
@@ -218,7 +225,7 @@ export async function startSession(o: SessionOptions): Promise<Session> {
         const tEnd = performance.now();
         events.push(...engine.finish(tEnd));
         face?.close(); hands?.close(); tap.stop(); o.source.stop();
-        fallbackVideo.remove();
+        fallbackVideo?.remove();
         const p = pip;
         pip = null;
         p?.close();
