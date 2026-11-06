@@ -60,10 +60,23 @@ export function computeFrameSignals(f: FaceFrame, h: HandFrame, b: Baseline, cfg
 export function handNear(h: HandFrame, box: Box, cfg: Config): boolean {
   const zones = [handZone(box, cfg), neckZone(box, cfg)];
   const inside = (p: { x: number; y: number }) => zones.some(z => p.x >= z.x && p.x <= z.x + z.w && p.y >= z.y && p.y <= z.y + z.h);
-  return h.hands.some(hand => {
+  return h.hands.some((hand, k) => {
+    if (!plausibleHand(hand, h.scores?.[k], box, cfg)) return false;
     const tips = FINGERTIPS.map(i => hand[i]).filter(Boolean);
     return (tips.length ? tips : hand).some(inside);
   });
+}
+
+/**
+ * Отсев ложных рук: низкая уверенность детектора или «рука» меньше трети высоты лица
+ * (так выглядят руки, найденные в узоре фона). Для одиночных точек (тесты, неполные данные) размер не проверяется.
+ */
+function plausibleHand(hand: { x: number; y: number }[], score: number | undefined, box: Box, cfg: Config): boolean {
+  if (score !== undefined && score < cfg.hands.minScore) return false;
+  if (hand.length < 21) return true;
+  const xs = hand.map(p => p.x), ys = hand.map(p => p.y);
+  const size = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+  return size >= box.h * cfg.hands.minSizeToFace;
 }
 
 /** Держит сигнал «рука у лица» holdMs после последнего срабатывания: детектор рук на мгновения теряет руку. */

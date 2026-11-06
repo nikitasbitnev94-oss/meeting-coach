@@ -9,7 +9,11 @@ export interface FaceFrame {
   eyeYaw: number; eyePitch: number; // -1..1 из eyeLook*
   box: Box;
 }
-export interface HandFrame { hands: { x: number; y: number }[][] } // нормированные
+export interface HandFrame {
+  hands: { x: number; y: number }[][]; // нормированные
+  /** Уверенность детектора по каждой руке, 0..1. */
+  scores?: number[];
+}
 export interface Baseline {
   blendshapes: Record<string, number>;
   gazeYawDeg: number; gazePitchDeg: number;

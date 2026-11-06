@@ -116,3 +116,13 @@ describe('правки 05.11', () => {
 test('раздражение не засчитывается при улыбке: улыбка сама сжимает губы', () => {
   expect(sig({ browDownLeft: .2, browDownRight: .2, mouthPressLeft: .3, mouthPressRight: .3, mouthSmileLeft: .8, mouthSmileRight: .8 }).irritation).toBe(false);
 });
+
+describe('руки: отсев ложных рук', () => {
+  const box = { x: .4, y: .3, w: .2, h: .3 };
+  // рука из 21 точки: кончики пальцев на щеке, остальные точки — по размеру size вниз от них
+  const hand = (size: number) => Array.from({ length: 21 }, (_, i) => ([4, 8, 12, 16, 20].includes(i)
+    ? { x: .55, y: .45 } : { x: .55 + size * 0.3, y: .45 + size }));
+  test('рука нормального размера — касание', () => expect(handNear({ hands: [hand(.25)], scores: [.9] }, box, DEFAULT_CONFIG)).toBe(true));
+  test('крошечная «рука» (меньше трети высоты лица) — ложная', () => expect(handNear({ hands: [hand(.05)], scores: [.9] }, box, DEFAULT_CONFIG)).toBe(false));
+  test('рука с низкой уверенностью детектора — ложная', () => expect(handNear({ hands: [hand(.25)], scores: [.4] }, box, DEFAULT_CONFIG)).toBe(false));
+});

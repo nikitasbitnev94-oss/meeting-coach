@@ -8,15 +8,16 @@ import { OwnSpeech } from '../audio/ownSpeech';
 import { LabelRecorder } from '../diag/labeling';
 import { spectrumExport } from '../diag/offline';
 import { EXPRESSION_STEPS, ExpressionRecorder } from '../diag/expressions';
+import { HAND_STEPS, HandRecorder } from '../diag/hands';
 import { clock } from '../report/summary';
 import { getBaseline, getConfig } from '../storage/db';
 import { appBase, attachVideo } from '../capture/video';
 import { DEFAULT_CONFIG } from '../config/defaults';
-import type { FaceFrame, HandFrame } from '../types';
+import type { Box, FaceFrame, HandFrame } from '../types';
 import { createFaceTracker, type FaceTracker } from '../vision/faceTracker';
 import { createHandTracker, type HandTracker } from '../vision/handTracker';
 import { everyMs, RateMeter, startAnalysisLoop } from '../vision/loop';
-import { computeFrameSignals } from '../vision/signals';
+import { computeFrameSignals, handNear } from '../vision/signals';
 import { gazeAngles } from '../vision/calibration';
 import { openPip, type PipWindow } from './pip';
 
@@ -51,7 +52,8 @@ export function renderDiag(root: HTMLElement): void {
     <div id="speech"></div>
     <div id="labeling"></div>
     <div id="spectrum"></div>
-    <div id="mimic"></div>`;
+    <div id="mimic"></div>
+    <div id="handsrec"></div>`;
   const msg = root.querySelector<HTMLElement>('#msg')!;
   const out = root.querySelector<HTMLElement>('#out')!;
   const camBtn = root.querySelector<HTMLButtonElement>('#cam')!;
@@ -143,6 +145,80 @@ export function renderDiag(root: HTMLElement): void {
   renderLabeling(root.querySelector<HTMLElement>('#labeling')!);
   renderSpectrum(root.querySelector<HTMLElement>('#spectrum')!);
   renderMimic(root.querySelector<HTMLElement>('#mimic')!);
+  renderHandsRecording(root.querySelector<HTMLElement>('#handsrec')!);
+}
+
+/** Разметка рук по шагам: касания и жесты без касаний. Числа точек и уверенность детектора, без изображения. */
+function renderHandsRecording(el: HTMLElement): void {
+  el.innerHTML = `
+    <h2>Разметка рук</h2>
+    <p class="muted">Страница по очереди попросит: убрать руки, пожестикулировать, подержать руку у лица, коснуться щеки, подбородка, волос, шеи. Около 70 секунд.
+    Сидите как на встрече, на том же месте и с тем же фоном. В файл попадают только координаты точек рук и лица, изображения нет.</p>
+    <div class="row"><button id="hgo" class="primary">Начать разметку рук</button></div>
+    <div id="hmsg" class="error"></div>
+    <div id="hstep" style="font-size:24px;font-weight:600;min-height:32px"></div>
+    <div id="hleft" class="muted"></div>
+    <div id="hfired" class="card muted">Здесь будет видно, сработала ли «рука у лица».</div>
+    <video id="hvideo" muted playsinline autoplay style="width:240px;border-radius:8px;transform:scaleX(-1)"></video>`;
+  const go = el.querySelector<HTMLButtonElement>('#hgo')!;
+  const msg = el.querySelector<HTMLElement>('#hmsg')!;
+  const stepEl = el.querySelector<HTMLElement>('#hstep')!;
+  const left = el.querySelector<HTMLElement>('#hleft')!;
+  const firedEl = el.querySelector<HTMLElement>('#hfired')!;
+  const video = el.querySelector<HTMLVideoElement>('#hvideo')!;
+
+  go.onclick = async () => {
+    go.disabled = true;
+    msg.textContent = '';
+    let source: MediaHandle | null = null;
+    let face: FaceTracker | null = null;
+    let hands: HandTracker | null = null;
+    try {
+      const cfg = await getConfig();
+      source = await openLiveSource();
+      video.srcObject = source.videoStream;
+      await video.play().catch(() => {});
+      stepEl.textContent = 'Загружаю модели…';
+      [face, hands] = await Promise.all([createFaceTracker(appBase()), createHandTracker(appBase(), 0.3)]);
+      const rec = new HandRecorder();
+      const due = everyMs(200);
+      let lastBox: Box | null = null;
+      for (const step of HAND_STEPS) {
+        stepEl.textContent = step.text;
+        await new Promise(r => setTimeout(r, 1500));
+        const end = performance.now() + step.ms;
+        await new Promise<void>(resolve => {
+          const loop = () => {
+            const t = performance.now();
+            if (t >= end) { resolve(); return; }
+            if (due(t)) {
+              const f = face!.detect(video, t);
+              if (f) lastBox = f.box;
+              const h = hands!.detect(video, t);
+              const fired = lastBox !== null && handNear(h, lastBox, cfg);
+              rec.frame(step.id, t, f?.box ?? null, h, fired);
+              firedEl.textContent = `рук в кадре: ${h.hands.length}${h.scores?.length ? ` (уверенность ${h.scores.map(x => x.toFixed(2)).join(', ')})` : ''} · рука у лица: ${fired ? 'да' : 'нет'}`;
+              left.textContent = `${Math.ceil((end - t) / 1000)} с`;
+            }
+            requestAnimationFrame(loop);
+          };
+          requestAnimationFrame(loop);
+        });
+      }
+      stepEl.textContent = 'Готово';
+      left.textContent = '';
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([JSON.stringify(rec.export())], { type: 'application/json' }));
+      a.download = `ruki-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      firedEl.textContent = `Файл ${a.download} в загрузках — пришлите его в чат.`;
+    } catch (e) {
+      msg.textContent = errorText(e);
+    } finally {
+      face?.close(); hands?.close(); source?.stop();
+      go.disabled = false;
+    }
+  };
 }
 
 /** Запись мимики по шагам: числа параметров лица и сработавшие сигналы. Для подбора порогов под пользователя. */
