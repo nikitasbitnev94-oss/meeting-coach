@@ -48,8 +48,8 @@ export const DEFAULT_CONFIG = {
   hesitation: { minRunMs: 240, minRms: 0.01, minCorr: 0.5, relRms: 0.5, maxPitchDrift: 0.2, wordMarginMs: 60, refWindowMs: 30000, minProb: 0.5 },
   asr: { loadTimeoutMs: 180000, flushTimeoutMs: 1500 },
   // Голосовой профиль: отпечаток последних 2 с речи раз в секунду; сходство с профилем ниже порога — чужой голос.
-  // Порог предварительный (по тестовым записям 5 голосов), уточнить по записи пользователя.
-  voice: { windowMs: 2000, hopMs: 1000, minMs: 800, tailMinMs: 500, runGapMs: 800, recentMs: 2500, threshold: 0.3, enrollMs: 20000 },
+  // Порог 0,35 — по записи пользователя 08.11: свой голос 0,40–0,78, чужой 0,00–0,32.
+  voice: { windowMs: 2000, hopMs: 1000, minMs: 800, tailMinMs: 500, runGapMs: 800, recentMs: 2500, threshold: 0.35, enrollMs: 20000 },
   calibration: { fullMs: 5000, gazeMs: 5000, minFaceShare: 0.7, maxGazeStdDeg: 4, maxAbsDeg: 25 },
 };
 
