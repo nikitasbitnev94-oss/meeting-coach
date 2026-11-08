@@ -18,7 +18,7 @@ import { everyMs, startAnalysisLoop, startIntervalLoop } from '../vision/loop';
 import { ACTIVITY_VERSION, effectiveActivityNorm } from '../vision/calibration';
 import { computeFrameSignals, HandHold, handNear } from '../vision/signals';
 import { BrowLevel, ExpressionWindow } from '../vision/window';
-import { buildMeeting, freshHits, LastFiller, pickStatus, type SpeechState } from './meeting';
+import { buildMeeting, CameraClock, freshHits, LastFiller, pickStatus, type SpeechState } from './meeting';
 
 export interface Session {
   stop(): Promise<Meeting>;
@@ -138,6 +138,7 @@ export async function startSession(o: SessionOptions): Promise<Session> {
   const faceDue = everyMs(config.perf.faceIntervalMs);
   const handDue = everyMs(config.perf.handIntervalMs);
   let cameraOff = false;
+  const cameraClock = new CameraClock(t0);
   let lastHands: HandFrame = { hands: [] };
   const handHold = new HandHold(config);
   let lastBox: Box | null = null;
@@ -195,6 +196,7 @@ export async function startSession(o: SessionOptions): Promise<Session> {
   const snapshot = (tEnd: number, extra: CoachEvent[]) => ({
     ...buildMeeting({ id, title: o.title, t0, tEnd, startedAt, totals: engine.totals(), events: [...events, ...extra] }),
     droppedForeignWords,
+    cameraOnMs: Math.round(cameraClock.onMs(tEnd)),
   });
   // Промежуточное сохранение: закрытая вкладка не теряет встречу целиком.
   const checkpoint = setInterval(() => {
@@ -213,7 +215,7 @@ export async function startSession(o: SessionOptions): Promise<Session> {
     },
     onPipClosed(cb) { closedCbs.push(cb); },
     speechSettled,
-    setCameraOff(off) { cameraOff = off; },
+    setCameraOff(off) { cameraOff = off; cameraClock.set(off, performance.now()); },
     stop() {
       stopped ??= (async () => {
         stopping = true;

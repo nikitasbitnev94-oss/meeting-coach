@@ -109,14 +109,14 @@ test('третий паразит за минуту — подсказка о ч
   const e = new RuleEngine(DEFAULT_CONFIG);
   const hit = (t: number, w: string) => e.update({ tMs: t, speaking: true, vision: V(), fillerHits: [{ word: w, tMs: t }] });
   hit(0, 'ну'); hit(10000, 'ну');
-  expect(hit(20000, 'вот').hint).toEqual({ id: 'fillerBurst', text: '3 паразита за минуту — делай паузы' });
+  expect(hit(20000, 'вот').hint).toEqual({ id: 'fillerBurst', text: 'делай паузы|3 паразита за минуту' });
 });
 test('склонение: 5 паразитов, 21 паразит', () => {
   const e = new RuleEngine({ ...DEFAULT_CONFIG, display: { ...DEFAULT_CONFIG.display, burstCount: 5 } });
   const hits = (n: number) => Array.from({ length: n }, (_, i) => ({ word: 'ну', tMs: i }));
-  expect(e.update({ tMs: 100, speaking: true, vision: V(), fillerHits: hits(5) }).hint?.text).toBe('5 паразитов за минуту — делай паузы');
+  expect(e.update({ tMs: 100, speaking: true, vision: V(), fillerHits: hits(5) }).hint?.text).toBe('делай паузы|5 паразитов за минуту');
   const e2 = new RuleEngine({ ...DEFAULT_CONFIG, display: { ...DEFAULT_CONFIG.display, burstCount: 21 } });
-  expect(e2.update({ tMs: 100, speaking: true, vision: V(), fillerHits: hits(21) }).hint?.text).toBe('21 паразит за минуту — делай паузы');
+  expect(e2.update({ tMs: 100, speaking: true, vision: V(), fillerHits: hits(21) }).hint?.text).toBe('делай паузы|21 паразит за минуту');
 });
 test('подсказка о частоте держится 2 с', () => {
   const e = new RuleEngine(DEFAULT_CONFIG);
@@ -180,7 +180,7 @@ describe('«э-э» — подсказка о частоте', () => {
   test('третье за минуту — подсказка с числом', () => {
     const e = new RuleEngine(DEFAULT_CONFIG);
     hit(e, 0); hit(e, 20000);
-    expect(hit(e, 40000).hint).toEqual({ id: 'hesitation', text: 'э-э: 3 за минуту, делай паузы' });
+    expect(hit(e, 40000).hint).toEqual({ id: 'hesitation', text: 'делай паузы|э-э: 3 за минуту' });
   });
   test('старше минуты не считаются', () => {
     const e = new RuleEngine(DEFAULT_CONFIG);

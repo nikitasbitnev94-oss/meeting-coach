@@ -20,6 +20,7 @@ import { everyMs, RateMeter, startAnalysisLoop } from '../vision/loop';
 import { computeFrameSignals, handNear } from '../vision/signals';
 import { gazeAngles } from '../vision/calibration';
 import { openPip, type PipWindow } from './pip';
+import { navHtml } from './nav';
 
 export const SOURCE_ERROR_TEXT: Record<string, string> = {
   denied: 'Нет доступа к камере или микрофону. Разрешите доступ в настройках сайта.',
@@ -42,7 +43,8 @@ const f0 = (n: number) => n.toFixed(0);
 
 export function renderDiag(root: HTMLElement): void {
   root.innerHTML = `
-    <nav class="top"><a href="#/">Суфлёр</a></nav>
+    ${navHtml('settings')}
+    <p><a href="#/settings">← Настройки</a></p>
     <h1>Диагностика</h1>
     <p class="muted">Проверка камеры, окна подсказок и распознавания. Ничего не сохраняется.</p>
     <h2>Камера</h2>

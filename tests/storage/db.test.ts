@@ -31,3 +31,10 @@ test('старые сохранённые настройки дополняют�
   expect(c.fillers).toEqual(['ну']);
   expect(c.gaze).toEqual(DEFAULT_CONFIG.gaze);
 });
+
+import { deleteMeeting } from '../../src/storage/db';
+test('удаление встречи', async () => {
+  await saveMeeting(m('del', '2026-11-03T10:00:00Z'));
+  await deleteMeeting('del');
+  expect(await getMeeting('del')).toBeUndefined();
+});

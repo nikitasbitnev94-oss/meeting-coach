@@ -9,15 +9,25 @@ const STATUS_TEXT: Record<PipStatus, string | null> = {
   'no-camera-model': 'анализ лица отключён',
   'no-speech-model': 'анализ речи отключён',
   'speech-loading': 'распознавание речи загружается',
-  'camera-off': 'камера выключена: подсказки по лицу на паузе',
+  'camera-off': 'камера выкл: подсказки по лицу на паузе',
 };
 
-export function formatPipState(s: PipState): { hintText: string; fillerText: string; statusText: string | null } {
-  return {
-    hintText: s.hint?.text ?? '',
-    fillerText: s.lastFiller ? `«${s.lastFiller}» · паразиты ${s.fillers}` : `паразиты ${s.fillers}`,
-    statusText: STATUS_TEXT[s.status],
-  };
+export type PipTone = 'ok' | 'hint' | 'muted';
+
+/**
+ * Окно — две строки. Первая: суть подсказки или «в норме». Вторая: пояснение (часть подсказки после «|»),
+ * статус или последнее слово-паразит со счётчиком.
+ */
+export function formatPipState(s: PipState): { main: string; sub: string; tone: PipTone; idle: boolean } {
+  const status = STATUS_TEXT[s.status];
+  if (s.hint) {
+    const [main, detail] = s.hint.text.split('|');
+    const sub = detail ? `${detail} · всего ${s.fillers}`
+      : s.lastFiller ? `«${s.lastFiller}» · паразиты ${s.fillers}` : status ?? `паразиты ${s.fillers}`;
+    return { main, sub, tone: 'hint', idle: false };
+  }
+  if (status) return { main: 'в норме', sub: status, tone: 'muted', idle: true };
+  return { main: 'в норме', sub: s.lastFiller ? `«${s.lastFiller}» · паразиты ${s.fillers}` : `паразиты ${s.fillers}`, tone: 'ok', idle: true };
 }
 
 export interface PipWindow {
@@ -26,7 +36,9 @@ export interface PipWindow {
   /** true — окно Document Picture-in-Picture поверх всех окон; false — обычное всплывающее окно. */
   isFloating: boolean;
   render(s: PipState): void;
-  addButton(label: string, onClick: () => void): HTMLButtonElement;
+  onEnd(cb: () => void): void;
+  onCameraToggle(cb: () => void): void;
+  setCameraOff(off: boolean): void;
   onClose(cb: () => void): void;
   close(): void;
 }
@@ -35,14 +47,14 @@ interface DocumentPictureInPicture {
   requestWindow(o: { width: number; height: number }): Promise<Window>;
 }
 
-const SIZE_KEY = 'pipSize';
+const SIZE_KEY = 'pipSizeA'; // новый ключ: прежний размер 320×120 был под старый вид
 
 function loadSize(): { width: number; height: number } {
   try {
     const v = JSON.parse(localStorage.getItem(SIZE_KEY) ?? 'null');
     if (v && v.width > 100 && v.height > 60) return { width: v.width, height: v.height };
   } catch { /* хранилище недоступно */ }
-  return { width: 320, height: 120 };
+  return { width: 320, height: 88 };
 }
 
 function saveSize(w: Window): void {
@@ -80,28 +92,31 @@ export async function openPip(): Promise<PipWindow> {
   if (!win) throw new Error('Не удалось открыть окно подсказок. Разрешите всплывающие окна для этого сайта.');
 
   const doc = win.document;
-  doc.title = 'Подсказки';
+  doc.title = 'Meeting Coach';
   copyStyles(doc);
   doc.body.style.margin = '0';
 
+  const ICON_CAM = '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l5-3v10l-5-3"/><rect x="3" y="6" width="12" height="12" rx="2"/></svg>';
+  const ICON_CAM_OFF = '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l5-3v10l-5-3"/><rect x="3" y="6" width="12" height="12" rx="2"/><path d="M2 2l20 20"/></svg>';
+  const ICON_STOP = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>';
+
   const root = doc.createElement('div');
   root.className = 'pip';
-  const hint = doc.createElement('div');
-  hint.className = 'hint empty';
-  const counters = doc.createElement('div');
-  counters.className = 'filler';
-  const status = doc.createElement('div');
-  status.className = 'status';
-  const bar = doc.createElement('div');
-  bar.className = 'bar';
-  root.append(hint, counters, status, bar);
-  if (!isFloating) {
-    const note = doc.createElement('div');
-    note.className = 'status';
-    note.textContent = 'окно не поверх всех окон';
-    root.append(note);
-  }
+  root.innerHTML = `
+    <div class="pip-row">
+      <span class="pip-dot"></span>
+      <span class="pip-main"></span>
+      <button class="pip-btn" data-cam aria-label="Камера выключена в созвоне" title="Выключили камеру в созвоне — нажмите">${ICON_CAM}</button>
+      <button class="pip-btn" data-end aria-label="Завершить встречу" title="Завершить встречу">${ICON_STOP}</button>
+    </div>
+    <div class="pip-sub"></div>
+    ${isFloating ? '' : '<div class="pip-sub pip-warn">окно не поверх всех окон</div>'}`;
   doc.body.append(root);
+  const dot = root.querySelector<HTMLElement>('.pip-dot')!;
+  const main = root.querySelector<HTMLElement>('.pip-main')!;
+  const sub = root.querySelector<HTMLElement>('.pip-sub')!;
+  const camBtn = root.querySelector<HTMLButtonElement>('[data-cam]')!;
+  const endBtn = root.querySelector<HTMLButtonElement>('[data-end]')!;
 
   win.addEventListener('resize', () => saveSize(win!));
   const closeCbs: (() => void)[] = [];
@@ -111,18 +126,19 @@ export async function openPip(): Promise<PipWindow> {
     doc, win, isFloating,
     render(s) {
       const f = formatPipState(s);
-      hint.textContent = f.hintText || 'всё хорошо';
-      hint.classList.toggle('empty', !f.hintText);
-      counters.textContent = f.fillerText;
-      counters.classList.toggle('fresh', !!s.lastFiller);
-      status.textContent = f.statusText ?? '';
+      main.textContent = f.main;
+      main.classList.toggle('idle', f.idle);
+      sub.textContent = f.sub;
+      sub.classList.toggle('fresh', !!s.lastFiller && !s.hint?.text.includes('|'));
+      dot.dataset.tone = f.tone;
     },
-    addButton(label, onClick) {
-      const b = doc.createElement('button');
-      b.textContent = label;
-      b.addEventListener('click', onClick);
-      bar.append(b);
-      return b;
+    onEnd(cb) { endBtn.addEventListener('click', cb); },
+    onCameraToggle(cb) { camBtn.addEventListener('click', cb); },
+    setCameraOff(off) {
+      camBtn.innerHTML = off ? ICON_CAM_OFF : ICON_CAM;
+      camBtn.classList.toggle('on', off);
+      camBtn.setAttribute('aria-label', off ? 'Камера включена в созвоне' : 'Камера выключена в созвоне');
+      camBtn.title = off ? 'Камера снова включена — нажмите' : 'Выключили камеру в созвоне — нажмите';
     },
     onClose(cb) { closeCbs.push(cb); },
     close() { win!.close(); },

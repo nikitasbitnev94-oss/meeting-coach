@@ -1,24 +1,22 @@
 import { formatPipState } from '../../src/ui/pip';
 
-test('подсказка и счётчик', () => {
-  const r = formatPipState({ hint: { id: 'gaze', text: 'в камеру' }, fillers: 7, lastFiller: null, status: 'ok' });
-  expect(r).toEqual({ hintText: 'в камеру', fillerText: 'паразиты 7', statusText: null });
-});
-test('последнее слово-паразит видно отдельно от главной подсказки', () => {
-  const r = formatPipState({ hint: { id: 'frown', text: 'расслабь брови' }, fillers: 3, lastFiller: 'вот', status: 'ok' });
-  expect(r.hintText).toBe('расслабь брови');
-  expect(r.fillerText).toBe('«вот» · паразиты 3');
-});
-test('статус лица', () => {
-  expect(formatPipState({ hint: null, fillers: 0, lastFiller: null, status: 'face-lost' }).statusText).toBe('лицо не в кадре');
-});
-test('статусы моделей', () => {
-  const s = (status: any) => formatPipState({ hint: null, fillers: 0, lastFiller: null, status }).statusText;
-  expect(s('no-camera-model')).toBe('анализ лица отключён');
-  expect(s('no-speech-model')).toBe('анализ речи отключён');
-  expect(s('speech-loading')).toBe('распознавание речи загружается');
-});
+const S = (over: any = {}) => ({ hint: null, fillers: 0, lastFiller: null, status: 'ok', ...over });
 
-test('статус «камера выключена»', () => {
-  expect(formatPipState({ hint: null, fillers: 0, lastFiller: null, status: 'camera-off' }).statusText).toBe('камера выключена: подсказки по лицу на паузе');
+test('пусто: «в норме», зелёная точка, счётчик', () => {
+  expect(formatPipState(S({ fillers: 12 }))).toEqual({ main: 'в норме', sub: 'паразиты 12', tone: 'ok', idle: true });
+});
+test('подсказка по лицу и свежий паразит', () => {
+  expect(formatPipState(S({ hint: { id: 'hands', text: 'руки от лица' }, fillers: 13, lastFiller: 'вот' })))
+    .toEqual({ main: 'руки от лица', sub: '«вот» · паразиты 13', tone: 'hint', idle: false });
+});
+test('длинная подсказка делится на суть и пояснение по «|»', () => {
+  expect(formatPipState(S({ hint: { id: 'fillerBurst', text: 'делай паузы|3 паразита за минуту' }, fillers: 16 })))
+    .toEqual({ main: 'делай паузы', sub: '3 паразита за минуту · всего 16', tone: 'hint', idle: false });
+});
+test('статусы — во второй строке, точка серая', () => {
+  expect(formatPipState(S({ status: 'face-lost' }))).toMatchObject({ sub: 'лицо не в кадре', tone: 'muted' });
+  expect(formatPipState(S({ status: 'camera-off' }))).toMatchObject({ sub: 'камера выкл: подсказки по лицу на паузе', tone: 'muted' });
+  expect(formatPipState(S({ status: 'speech-loading' }))).toMatchObject({ sub: 'распознавание речи загружается' });
+  expect(formatPipState(S({ status: 'no-speech-model' }))).toMatchObject({ sub: 'анализ речи отключён' });
+  expect(formatPipState(S({ status: 'no-camera-model' }))).toMatchObject({ sub: 'анализ лица отключён' });
 });

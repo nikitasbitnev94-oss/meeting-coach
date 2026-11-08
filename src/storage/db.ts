@@ -19,6 +19,10 @@ export async function saveMeeting(m: Meeting): Promise<void> {
   await (await db()).put('meetings', m);
 }
 
+export async function deleteMeeting(id: string): Promise<void> {
+  await (await db()).delete('meetings', id);
+}
+
 export async function getMeeting(id: string): Promise<Meeting | undefined> {
   return (await db()).get('meetings', id);
 }

@@ -54,3 +54,14 @@ test('камера выключена в созвоне — статус важ�
   expect(pickStatus('face-lost', true, 'ok', true)).toBe('camera-off');
   expect(pickStatus('ok', true, 'ok', false)).toBe('ok');
 });
+
+import { CameraClock } from '../../src/session/meeting';
+test('время с включённой камерой', () => {
+  const c = new CameraClock(0);
+  c.set(true, 60000);   // выключил на 1-й минуте
+  c.set(true, 70000);   // повторное нажатие с тем же состоянием не меняет ничего
+  c.set(false, 180000); // включил на 3-й
+  expect(c.onMs(600000)).toBe(600000 - 120000);
+  c.set(true, 500000);
+  expect(c.onMs(600000)).toBe(600000 - 120000 - 100000);
+});

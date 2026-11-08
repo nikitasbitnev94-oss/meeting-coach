@@ -56,3 +56,20 @@ export class LastFiller {
     return this.word && tMs - this.at <= this.holdMs ? this.word : null;
   }
 }
+
+/** Время с включённой камерой в созвоне по нажатиям «Камера выкл / вкл». */
+export class CameraClock {
+  private off = false;
+  private offSince = 0;
+  private offTotal = 0;
+  constructor(private t0: number) {}
+  set(off: boolean, tMs: number): void {
+    if (off === this.off) return;
+    if (off) this.offSince = tMs;
+    else this.offTotal += tMs - this.offSince;
+    this.off = off;
+  }
+  onMs(tEnd: number): number {
+    return tEnd - this.t0 - this.offTotal - (this.off ? tEnd - this.offSince : 0);
+  }
+}

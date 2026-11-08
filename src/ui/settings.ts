@@ -3,6 +3,7 @@ import { validateConfig } from '../config/validate';
 import { getConfig, saveConfig } from '../storage/db';
 import type { HintId } from '../types';
 import { esc } from './report';
+import { navHtml } from './nav';
 
 const HINT_LABEL: Record<HintId, string> = {
   hands: 'Руки у лица', smirk: 'Усмешка', irritation: 'Раздражение', skepticism: 'Скепсис',
@@ -20,7 +21,7 @@ const FACE_LABEL: Record<string, string> = {
   stoneMs: 'Каменное лицо: без реакции, мс', reactionDelta: 'Каменное лицо: что считать реакцией', reactionPitchDeg: 'Каменное лицо: кивок, градусы',
 };
 
-const NAV = `<nav class="top"><a href="#/">Новая встреча</a><a href="#/history">История</a><a href="#/settings">Настройки</a></nav>`;
+
 
 export async function renderSettings(root: HTMLElement): Promise<void> {
   let cfg = await getConfig();
@@ -34,7 +35,7 @@ export async function renderSettings(root: HTMLElement): Promise<void> {
       `<label class="row"><input type="number" step="0.1" min="0" style="width:90px" data-dur="${id}" value="${cfg.minDurationMs[id] / 1000}"> с — ${HINT_LABEL[id]}</label>`).join('');
     const face = Object.keys(FACE_LABEL).map(k =>
       `<label class="row"><input type="number" step="any" min="0" style="width:110px" data-face="${k}" value="${(cfg.face as Record<string, number>)[k]}"> ${FACE_LABEL[k]}</label>`).join('');
-    root.innerHTML = `${NAV}
+    root.innerHTML = `${navHtml('settings')}
       <h1>Настройки</h1>
       <h2>Слова-паразиты</h2>
       <div>${fillers || '<span class="muted">Список пуст.</span>'}</div>
@@ -47,7 +48,10 @@ export async function renderSettings(root: HTMLElement): Promise<void> {
       <label class="row"><input type="number" min="0" style="width:90px" data-gaze="maxYawDeg" value="${cfg.gaze.maxYawDeg}"> градусов в сторону</label>
       <label class="row"><input type="number" min="0" style="width:90px" data-gaze="maxPitchDeg" value="${cfg.gaze.maxPitchDeg}"> градусов вверх или вниз</label>
       <div id="errors" class="error"></div>
-      <div class="row"><button class="primary" id="save">Сохранить</button><button id="reset">Сбросить к значениям по умолчанию</button><span id="saved" class="muted"></span></div>`;
+      <div class="row"><button class="primary" id="save">Сохранить</button><button id="reset">Сбросить к значениям по умолчанию</button><span id="saved" class="muted"></span></div>
+      <h2>Диагностика</h2>
+      <p class="muted">Проверка камеры и окна подсказок, замер распознавания речи, записи мимики и рук для подбора порогов.</p>
+      <p><a href="#/diag">Открыть диагностику</a></p>`;
 
     root.querySelectorAll<HTMLAnchorElement>('[data-del]').forEach(a => a.onclick = e => {
       e.preventDefault();

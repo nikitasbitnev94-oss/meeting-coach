@@ -12,10 +12,11 @@ export const DEFAULT_CONFIG = {
     hands: true, smirk: true, irritation: true, skepticism: true, surprise: true, cheer: true,
     frown: true, expressive: true, stone: true, gaze: true, lipBite: false, hesitation: true, filler: true, fillerBurst: true,
   } as Record<HintId, boolean>,
+  // «суть|пояснение»: окно подсказок показывает суть крупно, пояснение строкой ниже
   texts: {
     hands: 'руки от лица', smirk: 'усмешка', irritation: 'раздражение', skepticism: 'скепсис',
     surprise: 'удивление', cheer: 'улыбка', frown: 'расслабь брови', expressive: 'мимика спокойнее',
-    stone: 'кивни, отреагируй', gaze: 'в камеру', lipBite: 'не кусай губы', hesitation: 'э-э: {n} за минуту, делай паузы', filler: '{word}', fillerBurst: '{count} за минуту — делай паузы',
+    stone: 'кивни, отреагируй', gaze: 'в камеру', lipBite: 'не кусай губы', hesitation: 'делай паузы|э-э: {n} за минуту', filler: '{word}', fillerBurst: 'делай паузы|{count} за минуту',
   } as Record<HintId, string>,
   minDurationMs: {
     hands: 1000, smirk: 1500, irritation: 2000, skepticism: 2000, surprise: 1500,
@@ -46,7 +47,7 @@ export const DEFAULT_CONFIG = {
   // подобрано по разметке пользователя 04.11.2026: 10 мин, 47 отметок
   hesitation: { minRunMs: 240, minRms: 0.01, minCorr: 0.5, relRms: 0.5, maxPitchDrift: 0.2, wordMarginMs: 60, refWindowMs: 30000, minProb: 0.5 },
   asr: { loadTimeoutMs: 180000, flushTimeoutMs: 1500 },
-  calibration: { fullMs: 20000, gazeMs: 5000, minFaceShare: 0.7, maxGazeStdDeg: 4, maxAbsDeg: 25 },
+  calibration: { fullMs: 5000, gazeMs: 5000, minFaceShare: 0.7, maxGazeStdDeg: 4, maxAbsDeg: 25 },
 };
 
 export type Config = typeof DEFAULT_CONFIG;
