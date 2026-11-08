@@ -13,6 +13,8 @@ export interface HandFrame {
   hands: { x: number; y: number }[][]; // нормированные
   /** Уверенность детектора по каждой руке, 0..1. */
   scores?: number[];
+  /** Какая это рука по мнению детектора: 'Left' | 'Right'. */
+  sides?: string[];
 }
 export interface Baseline {
   blendshapes: Record<string, number>;

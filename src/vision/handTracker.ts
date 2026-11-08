@@ -33,6 +33,7 @@ export async function createHandTracker(base: string, confidence = 0.5): Promise
       return {
         hands: r.landmarks.map(h => h.map(p => ({ x: p.x, y: p.y }))),
         scores: r.handedness.map(c => c[0]?.score ?? 0),
+        sides: r.handedness.map(c => c[0]?.categoryName ?? ''),
       };
     },
     close() { lm.close(); },
