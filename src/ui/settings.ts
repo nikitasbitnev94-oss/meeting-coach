@@ -1,6 +1,7 @@
 import { DEFAULT_CONFIG, type Config } from '../config/defaults';
 import { validateConfig } from '../config/validate';
-import { getConfig, saveConfig } from '../storage/db';
+import { deleteVoiceProfile, getConfig, getVoiceProfile, saveConfig } from '../storage/db';
+import { VOICE_MODEL_ID } from '../audio/voiceEnroll';
 import type { HintId } from '../types';
 import { esc } from './report';
 import { navHtml } from './nav';
@@ -25,6 +26,7 @@ const FACE_LABEL: Record<string, string> = {
 
 export async function renderSettings(root: HTMLElement): Promise<void> {
   let cfg = await getConfig();
+  let profile = await getVoiceProfile();
 
   const draw = () => {
     const fillers = cfg.fillers.map((f, i) =>
@@ -35,8 +37,16 @@ export async function renderSettings(root: HTMLElement): Promise<void> {
       `<label class="row"><input type="number" step="0.1" min="0" style="width:90px" data-dur="${id}" value="${cfg.minDurationMs[id] / 1000}"> с — ${HINT_LABEL[id]}</label>`).join('');
     const face = Object.keys(FACE_LABEL).map(k =>
       `<label class="row"><input type="number" step="any" min="0" style="width:110px" data-face="${k}" value="${(cfg.face as Record<string, number>)[k]}"> ${FACE_LABEL[k]}</label>`).join('');
+    const voice = profile
+      ? `<p>Записан ${new Date(profile.createdAt).toLocaleDateString('ru-RU')}, речи ${Math.round(profile.speechMs / 1000)} с.${profile.model !== VOICE_MODEL_ID ? ' <span class="error">Записан старой версией — запишите заново.</span>' : ''}</p>
+         <div class="row"><a class="button" href="#/voice">Записать заново</a><button class="link" id="delVoice">Удалить профиль</button></div>`
+      : `<p class="muted">Не записан. Без профиля суфлёр отличает вашу речь от чужой только по движению рта, а при выключенной камере — никак.</p>
+         <div class="row"><a class="button primary" href="#/voice">Записать голос (30 с)</a></div>`;
     root.innerHTML = `${navHtml('settings')}
       <h1>Настройки</h1>
+      <h2>Голос</h2>
+      ${voice}
+      <label class="row"><input type="number" step="0.05" min="0" max="1" style="width:90px" data-voice="threshold" value="${cfg.voice.threshold}"> порог сходства с профилем: ниже — чужой голос</label>
       <h2>Слова-паразиты</h2>
       <div>${fillers || '<span class="muted">Список пуст.</span>'}</div>
       <div class="row"><input type="text" id="newWord" placeholder="слово или фраза"><button id="add">Добавить</button></div>
@@ -59,6 +69,14 @@ export async function renderSettings(root: HTMLElement): Promise<void> {
       cfg.fillers.splice(Number(a.dataset.del), 1);
       draw();
     });
+    const delVoice = root.querySelector<HTMLButtonElement>('#delVoice');
+    if (delVoice) delVoice.onclick = async () => {
+      if (delVoice.dataset.armed !== '1') { delVoice.dataset.armed = '1'; delVoice.textContent = 'Точно удалить?'; return; }
+      collect();
+      await deleteVoiceProfile();
+      profile = null;
+      draw();
+    };
     root.querySelector<HTMLButtonElement>('#add')!.onclick = () => {
       collect();
       const w = root.querySelector<HTMLInputElement>('#newWord')!.value;
@@ -92,6 +110,9 @@ export async function renderSettings(root: HTMLElement): Promise<void> {
     });
     root.querySelectorAll<HTMLInputElement>('[data-face]').forEach(i => {
       (cfg.face as Record<string, number>)[i.dataset.face!] = i.value === '' ? NaN : Number(i.value);
+    });
+    root.querySelectorAll<HTMLInputElement>('[data-voice]').forEach(i => {
+      (cfg.voice as Record<string, number>)[i.dataset.voice!] = i.value === '' ? NaN : Number(i.value);
     });
     root.querySelectorAll<HTMLInputElement>('[data-gaze]').forEach(i => {
       (cfg.gaze as Record<string, number>)[i.dataset.gaze!] = i.value === '' ? NaN : Number(i.value);

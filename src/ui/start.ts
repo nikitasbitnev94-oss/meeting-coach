@@ -1,7 +1,7 @@
 import { openFileSource, openLiveSource, type MediaHandle } from '../capture/source';
 import { appBase } from '../capture/video';
 import { startSession, type Session } from '../session/session';
-import { getBaseline, getConfig } from '../storage/db';
+import { getBaseline, getConfig, getVoiceOnboardingDismissed, getVoiceProfile, setVoiceOnboardingDismissed } from '../storage/db';
 import { createFaceTracker, type FaceTracker } from '../vision/faceTracker';
 import { runCalibration } from './calibrationView';
 import { errorText } from './diag';
@@ -11,6 +11,7 @@ import { navigate } from './router';
 
 export function renderStart(root: HTMLElement): void {
   root.innerHTML = `${navHtml('new')}
+    <div id="onboarding"></div>
     <h1>Новая встреча</h1>
     <p class="muted">Откройте встречу в этом же браузере, в соседней вкладке. Звук и видео обрабатываются на этом компьютере и не сохраняются.</p>
     <div class="row"><input type="text" id="title" placeholder="Название встречи (необязательно)" style="flex:1;min-width:240px"></div>
@@ -21,6 +22,7 @@ export function renderStart(root: HTMLElement): void {
     </div>
     <div class="row"><button class="primary" id="start">Начать</button></div>
     <div id="msg" class="error"></div>`;
+  void showOnboarding(root.querySelector<HTMLElement>('#onboarding')!);
   const file = root.querySelector<HTMLInputElement>('#file')!;
   const msg = root.querySelector<HTMLElement>('#msg')!;
   const startBtn = root.querySelector<HTMLButtonElement>('#start')!;
@@ -46,7 +48,7 @@ export function renderStart(root: HTMLElement): void {
       let endedEarly = false;
       source.onEnded(() => { if (!sessionStarted) endedEarly = true; });
       startBtn.textContent = 'Загружаю модель лица…';
-      const [config, prev, f] = await Promise.all([getConfig(), getBaseline(), createFaceTracker(appBase())]);
+      const [config, prev, f, voice] = await Promise.all([getConfig(), getBaseline(), createFaceTracker(appBase()), getVoiceProfile()]);
       face = f;
       // Одна калибровка на 5 с перед каждой встречей: взгляд и спокойное лицо.
       const baseline = await runCalibration(root, 'full', { stream: source.videoStream, face, cfg: config, prev });
@@ -54,7 +56,7 @@ export function renderStart(root: HTMLElement): void {
       if (endedEarly) throw new Error('Файл закончился во время калибровки. Возьмите запись длиннее.');
       pip = await waitForPipClick(root);
       root.innerHTML = '<h1>Загружаю модели…</h1><p class="muted">Подсказки по лицу появятся через несколько секунд, распознавание речи — после загрузки модели (около 45 МБ, один раз).</p>';
-      const session = await startSession({ source, pip, config, baseline, title, face });
+      const session = await startSession({ source, pip, config, baseline, title, face, voice });
       sessionStarted = true;
       if (source.kind === 'file') await session.speechSettled;
       source.resume();
@@ -68,6 +70,22 @@ export function renderStart(root: HTMLElement): void {
       renderStart(root);
       root.querySelector<HTMLElement>('#msg')!.textContent = errorText(e);
     }
+  };
+}
+
+/** Первый запуск: предложить записать голос. «Позже» скрывает предложение насовсем; запись остаётся в Настройках. */
+export async function showOnboarding(el: HTMLElement): Promise<void> {
+  const [profile, dismissed] = await Promise.all([getVoiceProfile(), getVoiceOnboardingDismissed()]);
+  if (profile || dismissed) return;
+  el.innerHTML = `<div class="card onboarding">
+    <h2>Сначала запишите голос</h2>
+    <p>30 секунд чтения вслух. Суфлёр будет отличать вашу речь от голосов коллег и точнее считать «э-э».</p>
+    <div class="row"><a class="button primary" href="#/voice">Записать голос</a><button id="later">Позже</button></div>
+    <p class="muted small">Записать можно в любой момент в Настройках.</p>
+  </div>`;
+  el.querySelector<HTMLButtonElement>('#later')!.onclick = async () => {
+    await setVoiceOnboardingDismissed();
+    el.replaceChildren();
   };
 }
 

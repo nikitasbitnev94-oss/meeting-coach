@@ -81,3 +81,12 @@ button.link[data-armed="1"] { color: var(--warn); }
   color: #d4d4d8; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .pip-btn:hover { background: #2a2b2f; }
 .pip-btn.on { background: #3f3f46; color: #fbbf24; }
+
+a.button { display: inline-block; font: inherit; padding: 8px 16px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--card); color: var(--fg); text-decoration: none; }
+a.button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.meter { height: 8px; border-radius: 4px; background: var(--card); overflow: hidden; margin: 16px 0 4px; }
+.meter > div { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+.onboarding { border: 1px solid var(--line); }
+.onboarding h2 { margin-top: 4px; }
+.onboarding { margin-bottom: 24px; }

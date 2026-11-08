@@ -45,7 +45,8 @@ export async function renderReport(root: HTMLElement, [id]: string[]): Promise<v
     <h2>Слова-паразиты</h2>
     <p>Всего ${s.fillers}, в минуту вашей речи ${num(s.fillersPerMin)}.</p>
     ${words}
-    ${s.droppedForeignWords ? `<p class="muted">Не засчитано как чужая речь (ваш рот не двигался): ${s.droppedForeignWords}. Если это были ваши слова — напишите, порог нужно снизить.</p>` : ''}
+    ${s.droppedForeignWords ? `<p class="muted">Не засчитано как чужая речь (рот не двигался или голос не ваш): ${s.droppedForeignWords}. Если это были ваши слова — напишите, порог нужно снизить.</p>` : ''}
+    ${m.voice?.checked ? `<p class="muted">Проверка голоса: ${m.voice.checked} отрезков речи, чужой голос — ${Math.round((m.voice.foreign / m.voice.checked) * 100)}%.</p>` : ''}
     <h2>Взгляд</h2>
     <p>В камеру во время вашей речи: ${pct(s.gazeShare)}. Эпизодов взгляда мимо камеры дольше 3 с: ${s.offCameraEpisodes}.</p>
     <h2>Мимика и руки</h2>

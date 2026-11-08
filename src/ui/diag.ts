@@ -21,6 +21,7 @@ import { computeFrameSignals, handNear } from '../vision/signals';
 import { gazeAngles } from '../vision/calibration';
 import { openPip, type PipWindow } from './pip';
 import { navHtml } from './nav';
+import { renderVoiceCheck } from './diagVoice';
 
 export const SOURCE_ERROR_TEXT: Record<string, string> = {
   denied: 'Нет доступа к камере или микрофону. Разрешите доступ в настройках сайта.',
@@ -46,7 +47,7 @@ export function renderDiag(root: HTMLElement): void {
     ${navHtml('settings')}
     <p><a href="#/settings">← Настройки</a></p>
     <h1>Диагностика</h1>
-    <p class="muted">Проверка камеры, окна подсказок и распознавания. Ничего не сохраняется.</p>
+    <p class="muted">Проверка камеры, окна подсказок, распознавания и голоса. Ничего не сохраняется, кроме файлов, которые вы скачаете сами.</p>
     <h2>Камера</h2>
     <div class="row"><button class="primary" id="cam">Запустить камеру и окно подсказок</button><button id="stop" disabled>Остановить</button></div>
     <div id="msg" class="error"></div>
@@ -55,7 +56,8 @@ export function renderDiag(root: HTMLElement): void {
     <div id="labeling"></div>
     <div id="spectrum"></div>
     <div id="mimic"></div>
-    <div id="handsrec"></div>`;
+    <div id="handsrec"></div>
+    <div id="voicecheck"></div>`;
   const msg = root.querySelector<HTMLElement>('#msg')!;
   const out = root.querySelector<HTMLElement>('#out')!;
   const camBtn = root.querySelector<HTMLButtonElement>('#cam')!;
@@ -148,6 +150,7 @@ export function renderDiag(root: HTMLElement): void {
   renderSpectrum(root.querySelector<HTMLElement>('#spectrum')!);
   renderMimic(root.querySelector<HTMLElement>('#mimic')!);
   renderHandsRecording(root.querySelector<HTMLElement>('#handsrec')!);
+  renderVoiceCheck(root.querySelector<HTMLElement>('#voicecheck')!);
 }
 
 /** Разметка рук по шагам: касания и жесты без касаний. Числа точек и уверенность детектора, без изображения. */

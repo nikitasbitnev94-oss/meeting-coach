@@ -30,4 +30,10 @@ else
 fi
 
 cp "$ROOT"/node_modules/@mediapipe/tasks-vision/wasm/* "$WASM/"
+
+# модель голоса лежит в репозитории; движок onnxruntime — из node_modules
+cp "$ROOT/assets/voice-campplus-int8.onnx" "$MODELS/voice.onnx"
+ORT="$ROOT/public/ort"
+mkdir -p "$ORT"
+cp "$ROOT"/node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.{wasm,mjs} "$ORT/"
 echo "готово"

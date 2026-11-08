@@ -169,6 +169,8 @@ export class HesitationPipeline {
   private conf: HesitationConfirmer;
   private mel: MelFeatures;
   private ring = new FrameRing(400, MEL_BANDS);
+  /** Все кандидаты с их спектром — для подстройки при записи голосового профиля. */
+  onCandidate: ((s: Segment, mel: number[]) => void) | null = null;
 
   constructor(
     private cfg: Config,
@@ -185,9 +187,10 @@ export class HesitationPipeline {
     const p = r >= this.cfg.hesitation.minRms ? pitch(frame, this.sampleRate) : null;
     this.ring.push(tMs, this.mel.frame(frame));
     const seg = this.det.pushFeatures(r, p?.hz ?? 0, p?.corr ?? 0, tMs, (frame.length / this.sampleRate) * 1000);
-    if (seg && this.prob(this.ring.slice(seg.start, seg.end), MEL_BANDS, seg.end - seg.start) >= this.cfg.hesitation.minProb) {
-      this.conf.add(seg);
-    }
+    if (!seg) return;
+    const mel = this.ring.slice(seg.start, seg.end);
+    this.onCandidate?.(seg, mel);
+    if (this.prob(mel, MEL_BANDS, seg.end - seg.start) >= this.cfg.hesitation.minProb) this.conf.add(seg);
   }
 
   onWords(ws: AsrWord[], offsetMs: number): Segment[] { return this.conf.onWords(ws, offsetMs); }

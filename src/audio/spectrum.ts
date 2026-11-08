@@ -53,7 +53,7 @@ export class MelFeatures {
 }
 
 /** Комплексное БПФ на месте, длина — степень двойки. */
-function fft(re: Float64Array, im: Float64Array): void {
+export function fft(re: Float64Array, im: Float64Array): void {
   const n = re.length;
   for (let i = 1, j = 0; i < n; i++) {
     let bit = n >> 1;

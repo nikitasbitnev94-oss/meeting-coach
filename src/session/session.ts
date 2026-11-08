@@ -5,12 +5,16 @@ import { findFillers, normalize } from '../audio/fillers';
 import { HesitationPipeline, type Segment } from '../audio/hesitation';
 import { keepOwnSegments, OwnSpeech } from '../audio/ownSpeech';
 import { Vad } from '../audio/vad';
+import { hesitationProbability } from '../audio/hesitationModel';
+import { createVoiceEmbedder, type VoiceEmbedder } from '../audio/voiceClient';
+import { VOICE_MODEL_ID } from '../audio/voiceEnroll';
+import { VoiceGate } from '../audio/voiceGate';
 import type { MediaHandle } from '../capture/source';
 import { appBase, attachVideo } from '../capture/video';
 import type { Config } from '../config/defaults';
 import { RuleEngine } from '../rules/engine';
 import { saveBaseline, saveMeeting } from '../storage/db';
-import type { Baseline, Box, CoachEvent, FillerHit, HandFrame, Hint, Meeting } from '../types';
+import type { Baseline, Box, CoachEvent, FillerHit, HandFrame, Hint, Meeting, VoiceProfile } from '../types';
 import type { PipWindow } from '../ui/pip';
 import { createFaceTracker, type FaceTracker } from '../vision/faceTracker';
 import { createHandTracker, type HandTracker } from '../vision/handTracker';
@@ -39,6 +43,8 @@ export interface SessionOptions {
   title: string;
   /** Уже загруженный трекер лица (после калибровки), чтобы не грузить модель дважды. */
   face?: FaceTracker;
+  /** Голосовой профиль: отличать свою речь от чужой и подстроить «э-э». */
+  voice?: VoiceProfile | null;
 }
 
 const CHECKPOINT_MS = 30_000;
@@ -69,7 +75,10 @@ export async function startSession(o: SessionOptions): Promise<Session> {
   const tracker = new FillerTracker(config.fillers);
   const vad = new Vad(config);
   const own = new OwnSpeech(config);
-  const hesitation = new HesitationPipeline(config, tap.sampleRate);
+  // Профиль записан другой моделью — отпечатки несравнимы, профиль не используется.
+  const profile = o.voice && o.voice.model === VOICE_MODEL_ID && tap.sampleRate === 16000 ? o.voice : null;
+  const shift = profile?.hesitationShift ?? [];
+  const hesitation = new HesitationPipeline(config, tap.sampleRate, (m, b, d) => hesitationProbability(m, b, d, shift));
   const events: CoachEvent[] = [];
   let pending: FillerHit[] = [];
   let droppedForeignWords = 0;
@@ -88,10 +97,26 @@ export async function startSession(o: SessionOptions): Promise<Session> {
     }
   };
 
+  // Модель голоса грузится в фоне; до загрузки своя речь определяется по рту, как без профиля.
+  let gate: VoiceGate | null = null;
+  let embedder: VoiceEmbedder | null = null;
+  if (profile) {
+    createVoiceEmbedder(base).then(
+      e => {
+        if (stopping) { e.close(); return; }
+        embedder = e;
+        gate = new VoiceGate(config, s => e.embed(s), profile.embedding);
+        own.setVoice(gate);
+      },
+      e => console.error(e),
+    );
+  }
+
   // звук: «говорит» сразу, распознавание — когда загрузится модель
   tap.onFrame((f, t) => {
     speaking = vad.push(f, t);
     hesitation.push(f, t);
+    gate?.push(f, t, speaking);
   });
 
   let asr: Asr | null = null;
@@ -197,6 +222,7 @@ export async function startSession(o: SessionOptions): Promise<Session> {
     ...buildMeeting({ id, title: o.title, t0, tEnd, startedAt, totals: engine.totals(), events: [...events, ...extra] }),
     droppedForeignWords,
     cameraOnMs: Math.round(cameraClock.onMs(tEnd)),
+    voice: (gate as VoiceGate | null)?.totals(),
   });
   // Промежуточное сохранение: закрытая вкладка не теряет встречу целиком.
   const checkpoint = setInterval(() => {
@@ -229,6 +255,7 @@ export async function startSession(o: SessionOptions): Promise<Session> {
         const tEnd = performance.now();
         events.push(...engine.finish(tEnd));
         face?.close(); hands?.close(); tap.stop(); o.source.stop();
+        (embedder as VoiceEmbedder | null)?.close();
         fallbackVideo?.remove();
         const p = pip;
         pip = null;
@@ -243,3 +270,4 @@ export async function startSession(o: SessionOptions): Promise<Session> {
     },
   };
 }
+

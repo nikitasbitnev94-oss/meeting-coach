@@ -32,9 +32,32 @@ export function hesitationFeatures(melFlat: number[], bands: number, durMs: numb
   return [...means, ...stds, std(col(0)), durMs / 1000];
 }
 
-export function hesitationProbability(melFlat: number[], bands: number, durMs: number): number {
+export function hesitationProbability(melFlat: number[], bands: number, durMs: number, shift: readonly number[] = NO_SHIFT): number {
   const f = hesitationFeatures(melFlat, bands, durMs);
   let z = MODEL.intercept;
-  for (let i = 0; i < f.length; i++) z += MODEL.coef[i] * ((f[i] - MODEL.mu[i]) / MODEL.sd[i]);
+  for (let i = 0; i < f.length; i++) z += MODEL.coef[i] * ((f[i] - MODEL.mu[i] - (shift[i] ?? 0)) / MODEL.sd[i]);
   return 1 / (1 + Math.exp(-z));
+}
+
+/**
+ * Средние кепстральные коэффициенты 1–12 отрезков-кандидатов без «э-э» на записи, по которой обучена модель.
+ * Другой голос или микрофон сдвигает их; сдвиг измеряется по записи голосового профиля.
+ */
+const BASE_NEG_MEAN = [11.06948, 1.09243, 5.36, 0.1672, -0.8484, 0.7075, -1.25249, 1.34928, -2.02703, -0.51037, 1.50271, -0.98218];
+const NO_SHIFT: number[] = [];
+/** Меньше отрезков — сдвиг слабее: при n отрезках берётся доля n / (n + SHRINK_N). */
+const SHRINK_N = 10;
+
+/**
+ * Подстройка под голос и микрофон: сдвиг средних тембра по отрезкам обычной речи (кандидатам, не являющимся «э-э»).
+ * На записи пользователя 04.11 с имитацией другого микрофона (наклон спектра ±12 дБ) возвращает точность
+ * к исходной: найдено 69%, лишних 22% против 64–78% и 15–29% без подстройки; без имитации — без изменений.
+ */
+export function hesitationShift(segments: { mel: number[]; durMs: number }[], bands: number): number[] {
+  const n = segments.length;
+  if (!n) return [];
+  const sum = new Array(BASE_NEG_MEAN.length).fill(0);
+  for (const s of segments) hesitationFeatures(s.mel, bands, s.durMs).slice(0, BASE_NEG_MEAN.length).forEach((v, i) => { sum[i] += v; });
+  const k = n / (n + SHRINK_N);
+  return sum.map((v, i) => Math.round(((v / n - BASE_NEG_MEAN[i]) * k) * 1e5) / 1e5);
 }

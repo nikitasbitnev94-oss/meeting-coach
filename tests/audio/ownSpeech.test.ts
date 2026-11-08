@@ -53,3 +53,33 @@ test('«э-э» засчитывается, только если пользов
   const segs = [{ start: 2500, end: 2800 }, { start: 15000, end: 15300 }];
   expect(keepOwnSegments(segs, o, 3000)).toEqual([{ start: 2500, end: 2800 }]);
 });
+
+describe('с голосовым профилем', () => {
+  const voice = (recent: 'own' | 'foreign' | null, over: 'own' | 'foreign' | null = recent) => ({ recent: () => recent, over: () => over });
+  test('рот двигается, но голос чужой — не пользователь', () => {
+    const o = new OwnSpeech(DEFAULT_CONFIG, voice('foreign'));
+    talk(o, 0, 1000);
+    expect(o.update(true, 1000)).toBe(false);
+  });
+  test('голос свой и рот двигается — пользователь', () => {
+    const o = new OwnSpeech(DEFAULT_CONFIG, voice('own'));
+    talk(o, 0, 1000);
+    expect(o.update(true, 1000)).toBe(true);
+  });
+  test('решения по голосу ещё нет — как без профиля', () => {
+    const o = new OwnSpeech(DEFAULT_CONFIG, voice(null));
+    talk(o, 0, 1000);
+    expect(o.update(true, 1000)).toBe(true);
+  });
+  test('лица нет, голос свой — пользователь; чужой — нет', () => {
+    const own = new OwnSpeech(DEFAULT_CONFIG, voice('own'));
+    expect(own.update(true, 1000)).toBe(true);
+    const other = new OwnSpeech(DEFAULT_CONFIG, voice('foreign'));
+    expect(other.update(true, 1000)).toBe(false);
+  });
+  test('задним числом: интервал с чужим голосом не засчитывается', () => {
+    const o = new OwnSpeech(DEFAULT_CONFIG, voice(null, 'foreign'));
+    talk(o, 0, 1000); o.update(true, 1000);
+    expect(o.ownWithin(800, 1200)).toBe(false);
+  });
+});

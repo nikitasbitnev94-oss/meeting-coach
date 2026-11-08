@@ -38,3 +38,15 @@ test('удаление встречи', async () => {
   await deleteMeeting('del');
   expect(await getMeeting('del')).toBeUndefined();
 });
+
+test('голосовой профиль: нет, сохранить, удалить; отказ от онбординга запоминается', async () => {
+  const db = await import('../../src/storage/db');
+  expect(await db.getVoiceProfile()).toBeNull();
+  await db.saveVoiceProfile({ version: 1, model: 'm', embedding: [1, 0], hesitationShift: [], createdAt: 'x', speechMs: 20000 });
+  expect((await db.getVoiceProfile())?.embedding).toEqual([1, 0]);
+  await db.deleteVoiceProfile();
+  expect(await db.getVoiceProfile()).toBeNull();
+  expect(await db.getVoiceOnboardingDismissed()).toBe(false);
+  await db.setVoiceOnboardingDismissed();
+  expect(await db.getVoiceOnboardingDismissed()).toBe(true);
+});

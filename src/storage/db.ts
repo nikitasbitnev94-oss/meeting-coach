@@ -1,7 +1,7 @@
 import { openDB, type IDBPDatabase } from 'idb';
 import { DEFAULT_CONFIG, type Config } from '../config/defaults';
 import { validateConfig } from '../config/validate';
-import type { Baseline, Meeting } from '../types';
+import type { Baseline, Meeting, VoiceProfile } from '../types';
 
 let dbp: Promise<IDBPDatabase> | null = null;
 
@@ -49,4 +49,25 @@ export async function getBaseline(): Promise<Baseline | null> {
 
 export async function saveBaseline(b: Baseline): Promise<void> {
   await (await db()).put('kv', b, 'baseline');
+}
+
+export async function getVoiceProfile(): Promise<VoiceProfile | null> {
+  return ((await (await db()).get('kv', 'voiceProfile')) as VoiceProfile | undefined) ?? null;
+}
+
+export async function saveVoiceProfile(p: VoiceProfile): Promise<void> {
+  await (await db()).put('kv', p, 'voiceProfile');
+}
+
+export async function deleteVoiceProfile(): Promise<void> {
+  await (await db()).delete('kv', 'voiceProfile');
+}
+
+/** Пользователь отложил запись голоса при первом запуске — предложение больше не показывается. */
+export async function getVoiceOnboardingDismissed(): Promise<boolean> {
+  return (await (await db()).get('kv', 'voiceOnboardingDismissed')) === true;
+}
+
+export async function setVoiceOnboardingDismissed(): Promise<void> {
+  await (await db()).put('kv', true, 'voiceOnboardingDismissed');
 }
