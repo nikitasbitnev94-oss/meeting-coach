@@ -40,7 +40,8 @@ export const DEFAULT_CONFIG = {
   gaze: { maxYawDeg: 12, maxPitchDeg: 10, eyeYawRangeDeg: 30, eyePitchRangeDeg: 25, eyeYawSign: -1, eyePitchSign: -1 }, // знаки по замеру на ноутбуке пользователя 04.11.2026
   // частота анализа: лицо 10 к/с, руки 3 к/с (касание длится дольше секунды)
   perf: { faceIntervalMs: 100, handIntervalMs: 333 },
-  hands: { zoneUp: 0.6, zoneSide: 0.15, zoneDown: 0.65, holdMs: 600, faceBoxMemoryMs: 3000, minScore: 0.6, minSizeToFace: 0.33 },
+  // шея: до 40% высоты лица под подбородком и минимум 3 пальца — по разметке рук 08.11
+  hands: { zoneUp: 0.6, zoneSide: 0.15, zoneDown: 0.4, neckMinTips: 3, holdMs: 600, faceBoxMemoryMs: 3000, minScore: 0.6, minSizeToFace: 0.33 },
   vad: { hangoverMs: 700, minRms: 0.01, noiseRatio: 3, mouthWindowMs: 1000, mouthMoveDelta: 0.04 },
   // подобрано по разметке пользователя 04.11.2026: 10 мин, 47 отметок
   hesitation: { minRunMs: 240, minRms: 0.01, minCorr: 0.5, relRms: 0.5, maxPitchDrift: 0.2, wordMarginMs: 60, refWindowMs: 30000, minProb: 0.5 },

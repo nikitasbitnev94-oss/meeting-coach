@@ -58,12 +58,14 @@ export function computeFrameSignals(f: FaceFrame, h: HandFrame, b: Baseline, cfg
 
 /** Хотя бы одна точка руки в зоне вокруг лица. Рамку лица можно взять из последнего кадра, где лицо было видно. */
 export function handNear(h: HandFrame, box: Box, cfg: Config): boolean {
-  const zones = [handZone(box, cfg), neckZone(box, cfg)];
-  const inside = (p: { x: number; y: number }) => zones.some(z => p.x >= z.x && p.x <= z.x + z.w && p.y >= z.y && p.y <= z.y + z.h);
+  const face = handZone(box, cfg), neck = neckZone(box, cfg);
+  const inZ = (z: Box) => (p: { x: number; y: number }) => p.x >= z.x && p.x <= z.x + z.w && p.y >= z.y && p.y <= z.y + z.h;
   return h.hands.some((hand, k) => {
     if (!plausibleHand(hand, h.scores?.[k], box, cfg)) return false;
     const tips = FINGERTIPS.map(i => hand[i]).filter(Boolean);
-    return (tips.length ? tips : hand).some(inside);
+    const pts = tips.length ? tips : hand;
+    // Лицу и волосам хватает одного пальца. Шее — нескольких: у сцепленных у груди рук под подбородок попадают 1–2 пальца.
+    return pts.some(inZ(face)) || pts.filter(inZ(neck)).length >= Math.min(cfg.hands.neckMinTips, pts.length);
   });
 }
 

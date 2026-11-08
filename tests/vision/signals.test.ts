@@ -71,7 +71,8 @@ describe('руки', () => {
   });
   test('волосы', () => expect(hand({ x: .5, y: .2 })).toBe(true));
   test('шея', () => expect(hand({ x: .5, y: .7 })).toBe(true));
-  test('низ шеи — 60% высоты лица под подбородком', () => expect(hand({ x: .5, y: .78 })).toBe(true));
+  test('шея — до 40% высоты лица под подбородком', () => expect(hand({ x: .5, y: .71 })).toBe(true));
+  test('ниже 40% — уже грудь', () => expect(hand({ x: .5, y: .78 })).toBe(false));
   test('сбоку далеко', () => expect(hand({ x: .9, y: .4 })).toBe(false));
   test('рук нет', () => expect(sig({}).handNearFace).toBe(false));
 });
@@ -109,7 +110,7 @@ describe('правки 05.11', () => {
   test('пальцы на щеке — касание', () => expect(handNear(handWith({ x: .58, y: .45 }), box, DEFAULT_CONFIG)).toBe(true));
   test('пальцы сбоку от головы на 25% ширины — жест, не касание', () => expect(handNear(handWith({ x: .65, y: .4 }), box, DEFAULT_CONFIG)).toBe(false));
   test('пальцы на волосах сверху — касание', () => expect(handNear(handWith({ x: .5, y: .15 }), box, DEFAULT_CONFIG)).toBe(true));
-  test('пальцы на шее под подбородком — касание', () => expect(handNear(handWith({ x: .5, y: .75 }), box, DEFAULT_CONFIG)).toBe(true));
+  test('пальцы на шее под подбородком — касание', () => expect(handNear(handWith({ x: .5, y: .68 }), box, DEFAULT_CONFIG)).toBe(true));
   test('под подбородком, но сбоку от шеи — жест у груди, не касание', () => expect(handNear(handWith({ x: .63, y: .75 }), box, DEFAULT_CONFIG)).toBe(false));
 });
 
@@ -125,4 +126,25 @@ describe('руки: отсев ложных рук', () => {
   test('рука нормального размера — касание', () => expect(handNear({ hands: [hand(.25)], scores: [.9] }, box, DEFAULT_CONFIG)).toBe(true));
   test('крошечная «рука» (меньше трети высоты лица) — ложная', () => expect(handNear({ hands: [hand(.05)], scores: [.9] }, box, DEFAULT_CONFIG)).toBe(false));
   test('рука с низкой уверенностью детектора — ложная', () => expect(handNear({ hands: [hand(.25)], scores: [.4] }, box, DEFAULT_CONFIG)).toBe(false));
+});
+
+describe('руки у груди (разметка 08.11)', () => {
+  const box = { x: .4, y: .3, w: .2, h: .3 };
+  // 21 точка: кончики пальцев — tips, остальное — ниже, у груди
+  const handTips = (tips: { x: number; y: number }[]) => ({
+    hands: [Array.from({ length: 21 }, (_, i) => { const k = [4, 8, 12, 16, 20].indexOf(i); return k >= 0 ? tips[k] : { x: .5, y: .9 }; })],
+    scores: [.95],
+  });
+  test('касание шеи: 3 и больше кончиков пальцев под подбородком', () => {
+    const t = { x: .5, y: .65 }, low = { x: .5, y: .85 };
+    expect(handNear(handTips([t, t, t, low, low]), box, DEFAULT_CONFIG)).toBe(true);
+  });
+  test('руки у груди: под подбородок попали 2 пальца — не касание', () => {
+    const t = { x: .5, y: .65 }, low = { x: .5, y: .85 };
+    expect(handNear(handTips([t, t, low, low, low]), box, DEFAULT_CONFIG)).toBe(false);
+  });
+  test('для лица хватает одного пальца', () => {
+    const f = { x: .5, y: .45 }, low = { x: .5, y: .85 };
+    expect(handNear(handTips([f, low, low, low, low]), box, DEFAULT_CONFIG)).toBe(true);
+  });
 });
